@@ -56,17 +56,25 @@ func NewRepl() *REPL {
 func CombineRepls(repls []*REPL) (*REPL, error) {
 	//panic("function not yet implemented combine")
 	r := NewRepl()
-	if len(repls) == 0 || repls == nil {
+	if repls == nil || len(repls) == 0{
 		return r, errors.New("nil repls")
+	}
+	if len(repls) == 1 {
+		r.commands = repls[0].commands
+		r.help = repls[0].help
 	}
 	
 	for _, repl := range repls {
+		if repl == nil {
+			continue
+		}
 		for t, v := range repl.commands {
 			_, ok := r.commands[t]
 			if ok {
 				return nil, errors.New("repls overlapping")
 			} else {
 				r.commands[t] = v
+				r.help[t] = repl.help[t]
 			}
 		}
 	}
@@ -113,7 +121,7 @@ func (r *REPL) Run(c net.Conn, clientId uuid.UUID, prompt string) {
 		writer = c
 	}
 	scanner := bufio.NewScanner((reader))
-	//replConfig := &REPLConfig{writer: writer, clientId: clientId}
+	replConfig := &REPLConfig{writer: writer, clientId: clientId}
 	
 	// Begin the repl loop!
 	//panic("function not yet implemented run")
@@ -125,16 +133,18 @@ func (r *REPL) Run(c net.Conn, clientId uuid.UUID, prompt string) {
 			return
 		}
 		line := cleanInput(scanner.Text())
-		//fmt.Println(line)
 		var err error
-		// gan sha ne ???
 		tokens := strings.Split(line, " ")
-		//fmt.Println(tokens)
 		if tokens[0] == ".help" {
 			io.WriteString(writer, r.HelpString())
-			continue;
+			continue
 		}
-		r.commands[tokens[0]](line, &REPLConfig{})
+		_, ok := r.commands[tokens[0]]
+		if !ok {
+			io.WriteString(writer, "wrong command \n")
+			continue
+		}
+		r.commands[tokens[0]](line, replConfig)
 		
 		if err != nil {
 			io.WriteString(writer, ("error: " + err.Error() + "\n"))

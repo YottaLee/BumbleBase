@@ -179,7 +179,8 @@ const (
 
 func (list *List) list_contains(s string, config *repl.REPLConfig) error {
 	tokens := strings.Split(s, " ")
-	if tokens[0] != CmdListContains {
+	if tokens[0] != CmdListContains || len(tokens) != 2 {
+		fmt.Print("wrong command\n")
 		return errors.New("wrong command")
 	}
 	//fmt.Println("tokens: ", tokens)
@@ -201,6 +202,7 @@ func (list *List) list_contains(s string, config *repl.REPLConfig) error {
 
 func (list *List) list_print(s string, config *repl.REPLConfig) error {
 	if s != CmdListPrint {
+		fmt.Print("wrong command\n")
 		return errors.New("wrong command")
 	}
 	ptr := list.head
@@ -214,7 +216,8 @@ func (list *List) list_print(s string, config *repl.REPLConfig) error {
 
 func (list *List) list_pushhead(s string, config *repl.REPLConfig) error {
 	tokens := strings.Split(s, " ")
-	if tokens[0] != CmdListPushHead {
+	if tokens[0] != CmdListPushHead || len(tokens) != 2 {
+		fmt.Print("wrong command\n")
 		return errors.New("wrong command")
 	}
 	v, err := strconv.ParseInt(tokens[1], 10, 0)
@@ -228,7 +231,8 @@ func (list *List) list_pushhead(s string, config *repl.REPLConfig) error {
 
 func (list *List) list_pushtail(s string, config *repl.REPLConfig) error {
 	tokens := strings.Split(s, " ")
-	if tokens[0] != CmdListPushTail {
+	if tokens[0] != CmdListPushTail || len(tokens) != 2 {
+		fmt.Print("wrong command\n")
 		return errors.New("wrong command")
 	}
 	v, err := strconv.ParseInt(tokens[1], 10, 0)
@@ -241,7 +245,8 @@ func (list *List) list_pushtail(s string, config *repl.REPLConfig) error {
 
 func (list *List) list_remove(s string, config *repl.REPLConfig) error {
 	tokens := strings.Split(s, " ")
-	if tokens[0] != CmdListRemove {
+	if tokens[0] != CmdListRemove || len(tokens) != 2 {
+		fmt.Print("wrong command\n")
 		return errors.New("wrong command")
 	}
 	v, err := strconv.ParseInt(tokens[1], 10, 0)
