@@ -57,12 +57,12 @@ func CombineRepls(repls []*REPL) (*REPL, error) {
 	//panic("function not yet implemented combine")
 	r := NewRepl()
 	fmt.Println("repls is ", repls)
-	if repls == nil {
-		return NewRepl(), errors.New("nil repls")
+	if repls == nil || len(repls) == 0 {
+		fmt.Println("enter judge")
+		return r, errors.New("nil repls")
 	}
-	if len(repls) == 0 {
-		return NewRepl(), errors.New("nil repls")
-	}
+	fmt.Println("not enter")
+	fmt.Println("HelpString: " + repls[0].HelpString())
 	if len(repls) == 1 {
 		r.commands = repls[0].commands
 		r.help = repls[0].help
