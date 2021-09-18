@@ -3,7 +3,7 @@ package repl
 import (
 	"bufio"
 	"errors"
-	//"fmt"
+	"fmt"
 	"io"
 	"net"
 	"os"
@@ -56,12 +56,14 @@ func NewRepl() *REPL {
 func CombineRepls(repls []*REPL) (*REPL, error) {
 	//panic("function not yet implemented combine")
 	r := NewRepl()
+	fmt.Println("len is ", len(repls))
 	if repls == nil || len(repls) == 0{
 		return r, errors.New("nil repls")
 	}
 	if len(repls) == 1 {
 		r.commands = repls[0].commands
 		r.help = repls[0].help
+		return r, nil
 	}
 	
 	for _, repl := range repls {
