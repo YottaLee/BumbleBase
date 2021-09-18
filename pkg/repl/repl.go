@@ -59,7 +59,7 @@ func CombineRepls(repls []*REPL) (*REPL, error) {
 	fmt.Println("repls is ", repls)
 	if repls == nil || len(repls) == 0 {
 		fmt.Println("enter judge")
-		return r, errors.New("nil repls")
+		return r, nil
 	}
 	fmt.Println("not enter")
 	fmt.Println("HelpString: " + repls[0].HelpString())
