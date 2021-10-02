@@ -206,9 +206,7 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 	//panic("function not yet implemented");
 	if pagenum >= NUMPAGES {
-		//return nil, errors.New("invalid page number")
-		return nil, nil
-
+		return nil, errors.New("invalid page number")
 	}
 	link, ok := pager.pageTable[pagenum]
 	curPage := &Page{}
@@ -216,13 +214,6 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 		fmt.Print("get in pageTable")
 		curPage = link.GetKey().(*Page)
 		curPage.Get()
-		/*
-			if pager.unpinnedList == link.GetList() {
-				curPage.Get()
-			} else if pager.pinnedList == link.GetList() {
-				curPage.Get()
-			}
-		*/
 	} else {
 		fmt.Print("not in pageTable")
 		curPage, err = pager.NewPage(pagenum)
@@ -242,6 +233,7 @@ func (pager *Pager) FlushPage(page *Page) {
 	if page.IsDirty() {
 		fmt.Print("flushing ...")
 		pager.file.WriteAt(*page.data, page.pagenum*PAGESIZE)
+		page.SetDirty(false)
 	}
 }
 
