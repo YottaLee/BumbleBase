@@ -171,11 +171,33 @@ func NewPager() *Pager {
 func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 	//panic("function not yet implemented");
 	pager.ptMtx.Lock()
-	curPage := pager.freeList.PeekTail().GetKey().(*Page)
+
+	link := pager.freeList.PeekTail()
+	curPage := &Page{}
+	/*
+		for {
+			tmp := link.GetKey()
+			if tmp.(*Page).pagenum == NOPAGE {
+				link = link.GetPrev()
+			} else {
+				break
+			}
+		}
+	*/
+	if link == nil {
+		fmt.Print("no more freeList, try to get in unpinned")
+		link = pager.unpinnedList.PeekHead()
+		if link == nil {
+			return nil, errors.New("no page available")
+		}
+	}
+	curPage = link.GetKey().(*Page)
+	link.PopSelf()
 	curPage.pager = pager
 	curPage.pagenum = pagenum
-	fmt.Print("in lock ")
-	fmt.Print(curPage.pagenum)
+	newLink := pager.pinnedList.PushTail(curPage)
+	pager.pageTable[curPage.pagenum] = newLink
+
 	pager.ptMtx.Unlock()
 	return curPage, nil
 }
@@ -187,32 +209,36 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 		return nil, errors.New("invalid page number")
 	}
 	link, ok := pager.pageTable[pagenum]
+	curPage := &Page{}
 	if ok {
-		curPage := link.GetKey().(*Page)
-		if pager.unpinnedList == link.GetList() {
-			curPage.pinCount++
-		} else if pager.pinnedList == link.GetList() {
-			curPage.pinCount++
-		}
-		fmt.Print("in 1 ")
-		return curPage, nil
+		fmt.Print("get in pageTable")
+		curPage = link.GetKey().(*Page)
+		curPage.Get()
+		/*
+			if pager.unpinnedList == link.GetList() {
+				curPage.Get()
+			} else if pager.pinnedList == link.GetList() {
+				curPage.Get()
+			}
+		*/
 	} else {
-		curPage, err := pager.NewPage(pagenum)
+		fmt.Print("not in pageTable")
+		curPage, err = pager.NewPage(pagenum)
+		err = pager.ReadPageFromDisk(curPage, pagenum)
 		if err != nil {
-			return nil, err
+			return nil, errors.New("no page available")
 		}
-		curPage.pinCount++
+		curPage.Get()
 		pager.nPages++
-		fmt.Print("in 2 ")
-		return curPage, nil
 	}
-	return nil, nil
+	return curPage, nil
 }
 
 // Flush a particular page to disk.
 func (pager *Pager) FlushPage(page *Page) {
 	//panic("function not yet implemented");
 	if page.IsDirty() {
+		fmt.Print("flushing ...")
 		pager.file.WriteAt(*page.data, page.pagenum*PAGESIZE)
 	}
 }
@@ -220,8 +246,11 @@ func (pager *Pager) FlushPage(page *Page) {
 // Flushes all dirty pages.
 func (pager *Pager) FlushAllPages() {
 	//panic("function not yet implemented");
-	//pager.freeList.Map(pager.FlushPage)
-	//pager.unpinnedList.Map(pager.FlushPage)
-	//pager.pinnedList.Map(pager.FlushPage)
+
+	for t, _ := range pager.pageTable {
+		link, _ := pager.pageTable[t]
+		page := link.GetKey().(*Page)
+		pager.FlushPage(page)
+	}
 
 }

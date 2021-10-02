@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+
 	//"io"
 	"strings"
 
@@ -70,7 +71,7 @@ func (list *List) PushTail(value interface{}) *Link {
 func (list *List) Find(f func(*Link) bool) *Link {
 	//panic("function not yet implemented");
 	ptr := list.head
-	for ; ptr != nil; {
+	for ptr != nil {
 		if f(ptr) {
 			return ptr
 		}
@@ -83,7 +84,7 @@ func (list *List) Find(f func(*Link) bool) *Link {
 func (list *List) Map(f func(*Link)) {
 	//panic("function not yet implemented");
 	ptr := list.head
-	for ; ptr != nil; {
+	for ptr != nil {
 		f(ptr)
 		ptr = ptr.next
 	}
@@ -106,7 +107,7 @@ func (link *Link) GetList() *List {
 // Get the link's value.
 func (link *Link) GetKey() interface{} {
 	//panic("function not yet implemented");
-	if link.value != nil {
+	if link != nil {
 		return link.value
 	}
 	return nil
@@ -149,9 +150,9 @@ func (link *Link) PopSelf() {
 		}
 	case link.prev != nil:
 		link.prev.next = link.next
-		if link.next == nil{
+		if link.next == nil {
 			link.list.tail = link.prev
-		}else {
+		} else {
 			link.next.prev = link.prev
 		}
 	case link.prev == nil && link.next == nil:
@@ -161,20 +162,18 @@ func (link *Link) PopSelf() {
 }
 
 const (
-	CmdListHelp = ".help"
+	CmdListHelp     = ".help"
 	CmdListContains = "list_contains"
-	CmdListPrint = "list_print"
+	CmdListPrint    = "list_print"
 	CmdListPushHead = "list_push_head"
 	CmdListPushTail = "list_push_tail"
-	CmdListRemove = "list_remove"
-	
+	CmdListRemove   = "list_remove"
 
 	HelpListContains = "Checks if an element exists int the list, usage: list_contains <elt>"
-	HelpListPrint = "Prints out the elements of the list. usage: list_print"
+	HelpListPrint    = "Prints out the elements of the list. usage: list_print"
 	HelpListPushHead = "Add an element to the head of the list. usage: list_push_head <elt>"
 	HelpListPushTail = "Add an element to the tail of the list. usage: list_push_tail <elt>"
-	HelpListRemove = "Remove an element with the given value from the list. usage: list_remove <elf>"
-
+	HelpListRemove   = "Remove an element with the given value from the list. usage: list_remove <elf>"
 )
 
 func (list *List) list_contains(s string, config *repl.REPLConfig) error {
@@ -189,7 +188,7 @@ func (list *List) list_contains(s string, config *repl.REPLConfig) error {
 		return err
 	}
 	ptr := list.head
-	for ; ptr != nil; {
+	for ptr != nil {
 		if ptr.value == v {
 			fmt.Println("found!")
 			return nil
@@ -206,7 +205,7 @@ func (list *List) list_print(s string, config *repl.REPLConfig) error {
 		return errors.New("wrong command")
 	}
 	ptr := list.head
-	for ; ptr != nil; {
+	for ptr != nil {
 		fmt.Print(ptr.value)
 		ptr = ptr.next
 	}
@@ -227,7 +226,6 @@ func (list *List) list_pushhead(s string, config *repl.REPLConfig) error {
 	list.PushHead(v)
 	return nil
 }
-
 
 func (list *List) list_pushtail(s string, config *repl.REPLConfig) error {
 	tokens := strings.Split(s, " ")
@@ -254,7 +252,7 @@ func (list *List) list_remove(s string, config *repl.REPLConfig) error {
 		return err
 	}
 	ptr := list.head
-	for ; ptr != nil; {
+	for ptr != nil {
 		if ptr.value == v {
 			ptr.PopSelf()
 			return nil
@@ -270,12 +268,12 @@ func ListRepl(list *List) *repl.REPL {
 	//fmt.Println("enter ListRepl")
 	repl := repl.NewRepl()
 	//list.PushHead(1)
-	
+
 	repl.AddCommand(CmdListContains, list.list_contains, HelpListContains)
 	repl.AddCommand(CmdListPrint, list.list_print, HelpListPrint)
 	repl.AddCommand(CmdListPushHead, list.list_pushhead, HelpListPushHead)
 	repl.AddCommand(CmdListPushTail, list.list_pushtail, HelpListPushTail)
 	repl.AddCommand(CmdListRemove, list.list_remove, HelpListRemove)
 	return repl
-	
+
 }
