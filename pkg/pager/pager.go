@@ -231,13 +231,11 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 // Flush a particular page to disk.
 func (pager *Pager) FlushPage(page *Page) {
 	//panic("function not yet implemented");
-	pager.ptMtx.Lock()
 	if page.IsDirty() {
 		fmt.Printf("flushing %d \n", page.pagenum)
 		pager.file.WriteAt(*page.data, page.pagenum*PAGESIZE)
 		page.SetDirty(false)
 	}
-	pager.ptMtx.Unlock()
 }
 
 // Flushes all dirty pages.
