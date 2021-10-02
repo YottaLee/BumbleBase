@@ -215,7 +215,7 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 		curPage = link.GetKey().(*Page)
 		curPage.Get()
 	} else {
-		fmt.Print("not in pageTable")
+		fmt.Printf("not in pageTable %d", pagenum)
 		curPage, err = pager.NewPage(pagenum)
 		err = pager.ReadPageFromDisk(curPage, pagenum)
 		if err != nil {
@@ -231,7 +231,7 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 func (pager *Pager) FlushPage(page *Page) {
 	//panic("function not yet implemented");
 	if page.IsDirty() {
-		fmt.Print("flushing ...")
+		fmt.Print("flushing %d", page.pagenum)
 		pager.file.WriteAt(*page.data, page.pagenum*PAGESIZE)
 		page.SetDirty(false)
 	}
