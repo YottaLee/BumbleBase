@@ -207,7 +207,7 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 	//panic("function not yet implemented");
 	if pagenum >= NUMPAGES {
 		fmt.Printf("error pagenum: %d \n", pagenum)
-		return nil, errors.New("invalid page number")
+		return nil, nil
 	}
 	link, ok := pager.pageTable[pagenum]
 	curPage := &Page{}
