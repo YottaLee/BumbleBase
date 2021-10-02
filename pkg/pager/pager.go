@@ -197,6 +197,7 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 	curPage.pagenum = pagenum
 	newLink := pager.pinnedList.PushTail(curPage)
 	pager.pageTable[curPage.pagenum] = newLink
+	pager.nPages++
 
 	pager.ptMtx.Unlock()
 	return curPage, nil
@@ -205,9 +206,9 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 // getPage returns the page corresponding to the given pagenum.
 func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 	//panic("function not yet implemented");
-	if pagenum >= NUMPAGES {
+	if pagenum > NUMPAGES {
 		fmt.Printf("error pagenum: %d \n", pagenum)
-		return nil, nil
+		return nil, errors.New("invalid page number")
 	}
 	link, ok := pager.pageTable[pagenum]
 	curPage := &Page{}
@@ -223,7 +224,6 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 			return nil, errors.New("no page available")
 		}
 		curPage.Get()
-		pager.nPages++
 	}
 	return curPage, nil
 }
@@ -231,11 +231,13 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 // Flush a particular page to disk.
 func (pager *Pager) FlushPage(page *Page) {
 	//panic("function not yet implemented");
+	pager.ptMtx.Lock()
 	if page.IsDirty() {
-		fmt.Print("flushing %d \n", page.pagenum)
+		fmt.Printf("flushing %d \n", page.pagenum)
 		pager.file.WriteAt(*page.data, page.pagenum*PAGESIZE)
 		page.SetDirty(false)
 	}
+	pager.ptMtx.Unlock()
 }
 
 // Flushes all dirty pages.
