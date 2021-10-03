@@ -131,41 +131,6 @@ func (pager *Pager) ReadPageFromDisk(page *Page, pagenum int64) error {
 	return nil
 }
 
-/*
-type Pager struct {
-	file         *os.File             // File descriptor.
-	nPages       int64                // The number of pages used by this database.
-	ptMtx        sync.Mutex           // Page table mutex.
-	freeList     *list.List           // Free page list.
-	unpinnedList *list.List           // Unpinned page list.
-	pinnedList   *list.List           // Pinned page list.
-	pageTable    map[int64]*list.Link // Page table.
-}
-
-// Construct a new Pager.
-func NewPager() *Pager {
-	var pager *Pager = &Pager{}
-	pager.pageTable = make(map[int64]*list.Link)
-	pager.freeList = list.NewList()
-	pager.unpinnedList = list.NewList()
-	pager.pinnedList = list.NewList()
-	frames := directio.AlignedBlock(int(PAGESIZE * NUMPAGES))
-	for i := 0; i < NUMPAGES; i++ {
-		frame := frames[i*int(PAGESIZE) : (i+1)*int(PAGESIZE)]
-		page := Page{
-			pager:    pager,
-			pagenum:  NOPAGE,
-			pinCount: 0,
-			dirty:    false,
-			data:     &frame,
-		}
-		pager.freeList.PushTail(&page)
-	}
-	return pager
-}
-
-*/
-
 // NewPage returns an unused buffer from the free or unpinned list
 // the ptMtx should be locked on entry
 func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
@@ -174,16 +139,6 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 
 	link := pager.freeList.PeekTail()
 	curPage := &Page{}
-	/*
-		for {
-			tmp := link.GetKey()
-			if tmp.(*Page).pagenum == NOPAGE {
-				link = link.GetPrev()
-			} else {
-				break
-			}
-		}
-	*/
 	if link == nil {
 		fmt.Print("no more freeList, try to get in unpinned")
 		link = pager.unpinnedList.PeekHead()
@@ -205,7 +160,7 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 // getPage returns the page corresponding to the given pagenum.
 func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 	//panic("function not yet implemented");
-	if pagenum >= NUMPAGES {
+	if pagenum >= pager.nPages {
 		fmt.Printf("error pagenum: %d \n", pagenum)
 		return nil, errors.New("invalid page number")
 	}
