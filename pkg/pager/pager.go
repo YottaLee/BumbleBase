@@ -188,7 +188,7 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 		fmt.Print("no more freeList, try to get in unpinned")
 		link = pager.unpinnedList.PeekHead()
 		if link == nil {
-			return nil, errors.New("no page available")
+			return nil, errors.New("no unpinned page available")
 		}
 	}
 	curPage = link.GetKey().(*Page)
@@ -197,7 +197,6 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 	curPage.pagenum = pagenum
 	newLink := pager.pinnedList.PushTail(curPage)
 	pager.pageTable[curPage.pagenum] = newLink
-	pager.nPages++
 
 	pager.ptMtx.Unlock()
 	return curPage, nil
@@ -221,9 +220,10 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 		curPage, err = pager.NewPage(pagenum)
 		err = pager.ReadPageFromDisk(curPage, pagenum)
 		if err != nil {
-			return nil, errors.New("no page available")
+			return nil, err
 		}
 		curPage.Get()
+		pager.nPages++
 	}
 	return curPage, nil
 }
