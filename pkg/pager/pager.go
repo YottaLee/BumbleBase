@@ -140,11 +140,14 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 	link := pager.freeList.PeekTail()
 	curPage := &Page{}
 	if link == nil {
-		fmt.Print("no more freeList, try to get in unpinned")
+		fmt.Print("no more freeList, try to get in unpinned \n")
 		link = pager.unpinnedList.PeekHead()
 		if link == nil {
+			fmt.Print("no unpinned list \n")
 			return nil, errors.New("no unpinned page available")
 		}
+		fmt.Print("get unpinned list head \n")
+		fmt.Print(link.GetKey().(*Page).pagenum)
 	}
 	curPage = link.GetKey().(*Page)
 	link.PopSelf()
@@ -160,7 +163,7 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 // getPage returns the page corresponding to the given pagenum.
 func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 	//panic("function not yet implemented");
-	if pagenum > pager.nPages && pager.nPager >= PAGESNUM {
+	if pagenum > pager.nPages {
 		fmt.Printf("error pagenum: %d \n", pagenum)
 		return nil, errors.New("invalid page number")
 	}
