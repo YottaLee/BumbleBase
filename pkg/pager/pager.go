@@ -178,6 +178,7 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 		curPage, err = pager.NewPage(pagenum)
 		if err != nil {
 			fmt.Printf("reach err1 \n")
+			curPage = &Page{}
 			err = pager.ReadPageFromDisk(curPage, pagenum)
 			if err != nil {
 				fmt.Printf("reach err2 \n")
