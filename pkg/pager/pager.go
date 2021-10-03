@@ -146,7 +146,6 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 			fmt.Print("no unpinned list \n")
 			return nil, errors.New("no unpinned page available")
 		}
-		fmt.Print("get unpinned list head \n")
 		fmt.Print(link.GetKey().(*Page).pagenum)
 	}
 	curPage = link.GetKey().(*Page)
@@ -179,9 +178,8 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 		if err != nil {
 			fmt.Printf("reach err1 \n")
 			curPage = &Page{}
-			pager.ptMtx.Lock()
 			err = pager.ReadPageFromDisk(curPage, pagenum)
-			pager.ptMtx.Unlock()
+			fmt.Print(err)
 			if err != nil {
 				fmt.Printf("reach err2 \n")
 				return nil, err
