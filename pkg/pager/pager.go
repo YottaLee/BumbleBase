@@ -144,6 +144,7 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 		link = pager.unpinnedList.PeekHead()
 		if link == nil {
 			fmt.Print("no unpinned list \n")
+			pager.ptMtx.Unlock()
 			return nil, errors.New("no unpinned page available")
 		}
 		fmt.Print(link.GetKey().(*Page).pagenum)
@@ -177,7 +178,7 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 		curPage, err = pager.NewPage(pagenum)
 		if err != nil {
 			fmt.Printf("err in newpage \n")
-			return curPage, nil
+			return curPage, err
 		}
 		err = pager.ReadPageFromDisk(curPage, pagenum)
 		if err != nil {
