@@ -140,10 +140,10 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 	link := pager.freeList.PeekTail()
 	curPage := &Page{}
 	if link == nil {
-		fmt.Print("no more freeList, try to get in unpinned \n")
+		//fmt.Print("no more freeList, try to get in unpinned \n")
 		link = pager.unpinnedList.PeekHead()
 		if link == nil {
-			fmt.Print("no unpinned list \n")
+			//fmt.Print("no unpinned list \n")
 			pager.ptMtx.Unlock()
 			return nil, errors.New("no unpinned page available")
 		}
@@ -164,25 +164,25 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 	//panic("function not yet implemented");
 	if pagenum > pager.nPages {
-		fmt.Printf("error pagenum: %d \n", pagenum)
+		//fmt.Printf("error pagenum: %d \n", pagenum)
 		return nil, errors.New("invalid page number")
 	}
 	link, ok := pager.pageTable[pagenum]
 	curPage := &Page{}
 	if ok {
-		fmt.Print("get in pageTable")
+		//fmt.Print("get in pageTable")
 		curPage = link.GetKey().(*Page)
 		curPage.Get()
 	} else {
-		fmt.Printf("not in pageTable %d\n", pagenum)
+		//fmt.Printf("not in pageTable %d\n", pagenum)
 		curPage, err = pager.NewPage(pagenum)
 		if err != nil {
-			fmt.Printf("err in newpage \n")
+			//fmt.Printf("err in newpage \n")
 			return curPage, err
 		}
 		err = pager.ReadPageFromDisk(curPage, pagenum)
 		if err != nil {
-			fmt.Printf("err read from disk \n")
+			//fmt.Printf("err read from disk \n")
 			return nil, err
 		}
 		curPage.Get()
@@ -195,7 +195,7 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 func (pager *Pager) FlushPage(page *Page) {
 	//panic("function not yet implemented");
 	if page.IsDirty() {
-		fmt.Printf("flushing %d \n", page.pagenum)
+		//fmt.Printf("flushing %d \n", page.pagenum)
 		pager.file.WriteAt(*page.data, page.pagenum*PAGESIZE)
 		page.SetDirty(false)
 	}
