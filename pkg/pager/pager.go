@@ -176,7 +176,8 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 		fmt.Printf("not in pageTable %d\n", pagenum)
 		curPage, err = pager.NewPage(pagenum)
 		if err != nil {
-			return nil, errors.New("no page available")
+			fmt.Printf("err in newpage")
+			return curPage, errors.New("no page available")
 		}
 		err = pager.ReadPageFromDisk(curPage, pagenum)
 		fmt.Print(err)
