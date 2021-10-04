@@ -176,14 +176,13 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 		fmt.Printf("not in pageTable %d\n", pagenum)
 		curPage, err = pager.NewPage(pagenum)
 		if err != nil {
-			fmt.Printf("reach err1 \n")
-			curPage = &Page{}
-			err = pager.ReadPageFromDisk(curPage, pagenum)
-			fmt.Print(err)
-			if err != nil {
-				fmt.Printf("reach err2 \n")
-				return nil, err
-			}
+			return nil, errors.New("no page available")
+		}
+		err = pager.ReadPageFromDisk(curPage, pagenum)
+		fmt.Print(err)
+		if err != nil {
+			fmt.Printf("err read from disk \n")
+			return nil, err
 		}
 		curPage.Get()
 		pager.nPages++
