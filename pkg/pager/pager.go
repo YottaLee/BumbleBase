@@ -150,6 +150,7 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 		fmt.Print(link.GetKey().(*Page).pagenum)
 	}
 	curPage = link.GetKey().(*Page)
+	pager.FlushPage(curPage)
 	link.PopSelf()
 	curPage.pager = pager
 	curPage.pagenum = pagenum
