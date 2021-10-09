@@ -195,7 +195,7 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 func (pager *Pager) FlushPage(page *Page) {
 	//panic("function not yet implemented");
 	if page.IsDirty() {
-		//fmt.Printf("flushing %d \n", page.pagenum)
+		//fmt.Printf("flushing %d \n", page.pagenum) 
 		pager.file.WriteAt(*page.data, page.pagenum*PAGESIZE)
 		page.SetDirty(false)
 	}
