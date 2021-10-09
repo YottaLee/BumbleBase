@@ -156,7 +156,7 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 	curPage.pagenum = pagenum
 	newLink := pager.pinnedList.PushTail(curPage)
 	pager.pageTable[curPage.pagenum] = newLink
-
+	pager.nPages++
 	pager.ptMtx.Unlock()
 	return curPage, nil
 }
@@ -187,7 +187,6 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 			return nil, err
 		}
 		curPage.Get()
-		pager.nPages++
 	}
 	return curPage, nil
 }
