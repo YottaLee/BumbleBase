@@ -133,6 +133,7 @@ func (table *BTreeIndex) TableFindRange(startKey int64, endKey int64) ([]utils.E
 		return entrylist, err1
 	}
 	startEntry, _ := startCursor.GetEntry()
+
 	// endKey
 	endCursor, err2 := table.TableFind(endKey)
 	if err2 != nil {
@@ -150,18 +151,12 @@ func (table *BTreeIndex) TableFindRange(startKey int64, endKey int64) ([]utils.E
 		if err != nil {
 			return entrylist, err
 		}
+		startEntry, err = startCursor.GetEntry()
+		if err != nil {
+			return entrylist, err
+		}
 	}
 	return entrylist, nil
-	/*
-		for startCursor.GetEntry().GetKey() != endCursor.GetEntry().GetKey() {
-			currentEntry, err := startCursor.GetEntry()
-			if err != nil {
-				return entrylist, err
-			}
-			entrylist = append(entrylist, currentEntry)
-		}
-		return entrylist, nil
-	*/
 }
 
 // stepForward moves the cursor ahead by one entry.

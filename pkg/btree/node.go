@@ -136,7 +136,7 @@ func (node *LeafNode) split() Split {
 	startIndex := node.numKeys / 2
 	newNumKeys := node.numKeys - startIndex
 	nextNode.updateNumKeys(newNumKeys)
-	for i := startIndex; i < node.numKeys; i++ {
+	for i := startIndex; i <= node.numKeys; i++ {
 		nextNode.updateKeyAt(i-startIndex, node.getKeyAt(i))
 		nextNode.updateValueAt(i-startIndex, node.getValueAt(i))
 	}
@@ -158,12 +158,7 @@ func (node *LeafNode) get(key int64) (value int64, found bool) {
 	index := node.search(key)
 	if index >= node.numKeys || node.getKeyAt(index) != key {
 		// Thank you Mario! But our key is in another castle!
-		fmt.Printf("start to get: key = %d \n", key)
-		if index >= node.numKeys {
-			fmt.Printf("reason 1 \n")
-		} else {
-			fmt.Printf("reason 2 \n")
-		}
+
 		return 0, false
 	}
 	entry := node.getCell(index)
@@ -341,7 +336,7 @@ func (node *InternalNode) split() Split {
 	newNumKeys := node.numKeys - startIndex
 	nextNode.updateNumKeys(newNumKeys)
 
-	for i := startIndex; i < node.numKeys; i++ {
+	for i := startIndex; i <= node.numKeys; i++ {
 		nextNode.updateKeyAt(i-startIndex, node.getKeyAt(i))
 	}
 	// set pointers
