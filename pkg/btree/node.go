@@ -46,7 +46,7 @@ func (node *LeafNode) search(key int64) int64 {
 		return node.getKeyAt(int64(i)) >= key
 	}
 	i := int64(sort.Search(int(node.numKeys), c))
-	if i < node.numKeys && node.getKeyAt(i) == key {
+	if i < node.numKeys {
 		return i
 	}
 	return node.numKeys
@@ -93,9 +93,9 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	node.updateNumKeys(node.numKeys + 1)
 	//fmt.Printf("after insert, size : %d \n", node.numKeys)
 
-	for i := node.numKeys - 1; i > index; i-- {
-		node.updateKeyAt(i, node.getKeyAt(i-1))
-		node.updateValueAt(i, node.getValueAt(i-1))
+	for i := node.numKeys - 1; i >= index; i-- {
+		node.updateKeyAt(i+1, node.getKeyAt(i))
+		node.updateValueAt(i+1, node.getValueAt(i))
 	}
 	node.updateKeyAt(index, key)
 	node.updateValueAt(index, value)
@@ -239,7 +239,7 @@ func (node *InternalNode) search(key int64) int64 {
 	c := func(i int) bool {
 		return node.getKeyAt(int64(i)) > key
 	}
-	i := int64(sort.Search(int(node.numKeys-1), c))
+	i := int64(sort.Search(int(node.numKeys), c))
 	if i < node.numKeys {
 		return i
 	}
@@ -387,7 +387,6 @@ func (node *InternalNode) keyToNodeEntry(key int64) (*LeafNode, int64, error) {
 
 // printNode pretty prints our internal node.
 /*
-
 func (node *InternalNode) printNode(w io.Writer, firstPrefix string, prefix string) {
 	// Format header data.
 	var nodeType string = "Internal"
