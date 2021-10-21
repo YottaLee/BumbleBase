@@ -61,10 +61,15 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	index := node.search(key)
 	ressplit := Split{
 		isSplit: false,
-		key:     key,
+		key:     -1,
 		leftPN:  0,
 		rightPN: 0,
 		err:     nil,
+	}
+	// if update not exist
+	if node.getKeyAt(index) != key && update {
+		ressplit.err = errors.New("Key not exists, can not update")
+		return ressplit
 	}
 
 	// if exist
@@ -80,10 +85,6 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 			ressplit.err = errors.New("Key already exists, can not overwrite")
 			return ressplit
 		}
-	}
-	if node.getKeyAt(index) != key && update {
-		ressplit.err = errors.New("Key not exists, can not update")
-		return ressplit
 	}
 
 	// have to insert new node
