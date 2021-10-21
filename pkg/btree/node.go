@@ -133,7 +133,7 @@ func (node *LeafNode) split() Split {
 	defer nextNode.getPage().Put()
 
 	// copy data
-	startIndex := node.numKeys/2 + 1
+	startIndex := node.numKeys / 2
 	newNumKeys := node.numKeys - startIndex
 	nextNode.updateNumKeys(newNumKeys)
 	for i := startIndex; i < node.numKeys; i++ {
@@ -145,8 +145,9 @@ func (node *LeafNode) split() Split {
 	node.updateNumKeys(startIndex)
 	node.setRightSibling(nextNode.getPage().GetPageNum())
 
+	result.key = nextNode.getKeyAt(0)
 	result.leftPN = node.getPage().GetPageNum()
-	defer node.getPage().Put()
+	//defer node.getPage().Put()
 	result.rightPN = nextNode.getPage().GetPageNum()
 
 	return result
@@ -175,6 +176,33 @@ func (node *LeafNode) keyToNodeEntry(key int64) (*LeafNode, int64, error) {
 }
 
 // printNode pretty prints our leaf node.
+/*
+func (node *LeafNode) printNode(w io.Writer, firstPrefix string, prefix string) {
+	// Format header data.
+	var nodeType string = "Leaf"
+	var isRoot string
+	if node.isRoot() {
+		isRoot = " (root)"
+	}
+	numKeys := strconv.Itoa(int(node.numKeys))
+	// Print header data.
+	io.WriteString(w, fmt.Sprintf("%v[%v] %v%v size: %v\n",
+		firstPrefix, node.page.GetPageNum(), nodeType, isRoot, numKeys))
+	// Print entries.
+	for cellnum := int64(0); cellnum < node.numKeys; cellnum++ {
+		entry := node.getCell(cellnum)
+		io.WriteString(w, fmt.Sprintf("%v |--> (%v, %v)\n",
+			prefix, entry.GetKey(), entry.GetValue()))
+	}
+	if node.rightSiblingPN > 0 {
+		io.WriteString(w, fmt.Sprintf("%v |--+\n", prefix))
+		io.WriteString(w, fmt.Sprintf("%v    | right sibling @ [%v]\n",
+			prefix, node.rightSiblingPN))
+		io.WriteString(w, fmt.Sprintf("%v    v\n", prefix))
+	}
+}
+*/
+
 func (node *LeafNode) printNode(w io.Writer, firstPrefix string, prefix string) {
 	// Format header data.
 	var nodeType string = "Leaf"
@@ -309,7 +337,7 @@ func (node *InternalNode) split() Split {
 		return result
 	}
 
-	startIndex := node.numKeys/2 + 1
+	startIndex := node.numKeys / 2
 	newNumKeys := node.numKeys - startIndex
 	nextNode.updateNumKeys(newNumKeys)
 
@@ -321,7 +349,7 @@ func (node *InternalNode) split() Split {
 
 	result.leftPN = node.getPage().GetPageNum()
 	result.rightPN = nextNode.getPage().GetPageNum()
-	defer node.getPage().Put()
+	//defer node.getPage().Put()
 	result.key = nextNode.getKeyAt(0)
 
 	return result
@@ -350,6 +378,37 @@ func (node *InternalNode) keyToNodeEntry(key int64) (*LeafNode, int64, error) {
 }
 
 // printNode pretty prints our internal node.
+/*
+
+func (node *InternalNode) printNode(w io.Writer, firstPrefix string, prefix string) {
+	// Format header data.
+	var nodeType string = "Internal"
+	var isRoot string
+	if node.isRoot() {
+		isRoot = " (root)"
+	}
+	numKeys := strconv.Itoa(int(node.numKeys + 1))
+	// Print header data.
+	io.WriteString(w, fmt.Sprintf("%v[%v] %v%v size: %v\n",
+		firstPrefix, node.page.GetPageNum(), nodeType, isRoot, numKeys))
+	// Print entries.
+	nextFirstPrefix := prefix + " |--> "
+	nextPrefix := prefix + " |    "
+	for idx := int64(0); idx <= node.numKeys; idx++ {
+		io.WriteString(w, fmt.Sprintf("%v\n", nextPrefix))
+		child, err := node.getChildAt(idx)
+		if err != nil {
+			return
+		}
+		defer child.getPage().Put()
+		child.printNode(w, nextFirstPrefix, nextPrefix)
+		if idx != node.numKeys {
+			io.WriteString(w, fmt.Sprintf("\n%v[KEY] %v\n", nextPrefix, node.getKeyAt(idx)))
+		}
+	}
+}
+*/
+
 func (node *InternalNode) printNode(w io.Writer, firstPrefix string, prefix string) {
 	// Format header data.
 	var nodeType string = "Internal"
