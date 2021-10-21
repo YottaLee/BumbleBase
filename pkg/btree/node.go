@@ -130,8 +130,8 @@ func (node *LeafNode) split() Split {
 	result := Split{
 		isSplit: true,
 		key:     -1,
-		leftPN:  0,
-		rightPN: 0,
+		leftPN:  -1,
+		rightPN: -1,
 		err:     nil,
 	}
 	nextNode, _ := createLeafNode(node.page.GetPager())
@@ -152,7 +152,6 @@ func (node *LeafNode) split() Split {
 
 	result.key = nextNode.getKeyAt(0)
 	result.leftPN = node.getPage().GetPageNum()
-	//defer node.getPage().Put()
 	result.rightPN = nextNode.getPage().GetPageNum()
 
 	return result
@@ -252,8 +251,8 @@ func (node *InternalNode) insert(key int64, value int64, update bool) Split {
 	result := Split{
 		isSplit: false,
 		key:     -1,
-		leftPN:  0,
-		rightPN: 0,
+		leftPN:  -1,
+		rightPN: -1,
 		err:     nil,
 	}
 	// if leaf node
@@ -285,8 +284,8 @@ func (node *InternalNode) insertSplit(split Split) Split {
 	result := Split{
 		isSplit: false,
 		key:     -1,
-		leftPN:  0,
-		rightPN: 0,
+		leftPN:  -1,
+		rightPN: -1,
 		err:     nil,
 	}
 	// find index for split
@@ -296,7 +295,11 @@ func (node *InternalNode) insertSplit(split Split) Split {
 	for i := node.numKeys - 1; i > index; i-- {
 		node.updateKeyAt(i, node.getKeyAt(i-1))
 	}
+	for i := node.numKeys; i > index; i-- {
+		node.updatePNAt(i, node.getPNAt(i-1))
+	}
 	node.updateKeyAt(index, split.key)
+	node.updatePNAt(index+1, split.rightPN)
 
 	// if need split again
 	if node.numKeys > KEYS_PER_INTERNAL_NODE {
@@ -326,8 +329,8 @@ func (node *InternalNode) split() Split {
 	result := Split{
 		isSplit: true,
 		key:     -1,
-		leftPN:  0,
-		rightPN: 0,
+		leftPN:  -1,
+		rightPN: -1,
 		err:     nil,
 	}
 	nextNode, err := createInternalNode(node.page.GetPager())
@@ -336,21 +339,25 @@ func (node *InternalNode) split() Split {
 		result.err = err
 		return result
 	}
-
+	// key index and new node key size
 	startIndex := node.numKeys / 2
-	newNumKeys := node.numKeys - startIndex
+	newNumKeys := node.numKeys - startIndex - 1
 	nextNode.updateNumKeys(newNumKeys)
 
-	for i := startIndex; i < node.numKeys; i++ {
-		nextNode.updateKeyAt(i-startIndex, node.getKeyAt(i))
+	//copying data
+	for i := startIndex + 1; i < node.numKeys; i++ {
+		nextNode.updateKeyAt(i-startIndex-1, node.getKeyAt(i))
+		nextNode.updatePNAt(i-startIndex-1, node.getPNAt(i))
 	}
-	// set pointers
+	nextNode.updateKeyAt(newNumKeys, node.getKeyAt(node.numKeys))
+	//result split key
+	result.key = node.getKeyAt(startIndex)
+
+	// set original node size
 	node.updateNumKeys(startIndex)
 
 	result.leftPN = node.getPage().GetPageNum()
 	result.rightPN = nextNode.getPage().GetPageNum()
-	//defer node.getPage().Put()
-	result.key = nextNode.getKeyAt(0)
 
 	return result
 }
