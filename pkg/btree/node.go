@@ -81,6 +81,10 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 			return ressplit
 		}
 	}
+	if node.getKeyAt(index) != key && update {
+		ressplit.err = errors.New("Key not exists, can not update")
+		return ressplit
+	}
 
 	// have to insert new node
 	//fmt.Printf("before insert, size : %d \n", node.numKeys)
@@ -136,7 +140,7 @@ func (node *LeafNode) split() Split {
 	startIndex := node.numKeys / 2
 	newNumKeys := node.numKeys - startIndex
 	nextNode.updateNumKeys(newNumKeys)
-	for i := startIndex; i <= node.numKeys; i++ {
+	for i := startIndex; i < node.numKeys; i++ {
 		nextNode.updateKeyAt(i-startIndex, node.getKeyAt(i))
 		nextNode.updateValueAt(i-startIndex, node.getValueAt(i))
 	}
@@ -336,7 +340,7 @@ func (node *InternalNode) split() Split {
 	newNumKeys := node.numKeys - startIndex
 	nextNode.updateNumKeys(newNumKeys)
 
-	for i := startIndex; i <= node.numKeys; i++ {
+	for i := startIndex; i < node.numKeys; i++ {
 		nextNode.updateKeyAt(i-startIndex, node.getKeyAt(i))
 	}
 	// set pointers
