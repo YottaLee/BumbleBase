@@ -68,7 +68,8 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	}
 	// if update not exist
 	if node.getKeyAt(index) != key && update {
-		ressplit.err = errors.New("Key not exists, can not update key " + string(key))
+		fmt.Printf("error key = %d , value = %d \n", key, value)
+		ressplit.err = errors.New("Key not exists, can not update key")
 		return ressplit
 	}
 
