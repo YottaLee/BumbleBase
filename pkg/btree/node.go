@@ -1,7 +1,6 @@
 package btree
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -71,7 +70,7 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 		//fmt.Print("exist same key\n")
 		if update == false {
 			//fmt.Print("insert not overwrite\n")
-			ressplit.err = errors.New("Key already exists")
+			//ressplit.err = errors.New("Key already exists")
 			return ressplit
 		} else {
 			//fmt.Print("insert overwrite\n")
