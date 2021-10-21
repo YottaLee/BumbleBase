@@ -1,6 +1,7 @@
 package btree
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -70,7 +71,7 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 		//fmt.Print("exist same key\n")
 		if update == false {
 			//fmt.Print("insert not overwrite\n")
-			//ressplit.err = errors.New("Key already exists")
+			ressplit.err = errors.New("Key already exists")
 			return ressplit
 		} else {
 			//fmt.Print("insert overwrite\n")
@@ -155,6 +156,12 @@ func (node *LeafNode) get(key int64) (value int64, found bool) {
 	index := node.search(key)
 	if index >= node.numKeys || node.getKeyAt(index) != key {
 		// Thank you Mario! But our key is in another castle!
+		fmt.Printf("start to get: key = %d \n", key)
+		if index >= node.numKeys {
+			fmt.Printf("reason 1 \n")
+		} else {
+			fmt.Printf("reason 2 \n")
+		}
 		return 0, false
 	}
 	entry := node.getCell(index)
