@@ -97,7 +97,7 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	//fmt.Printf("after insert, size : %d \n", node.numKeys)
 
 	// need to split
-	if node.numKeys > ENTRIES_PER_LEAF_NODE {
+	if node.numKeys >= ENTRIES_PER_LEAF_NODE {
 		return node.split()
 	}
 
