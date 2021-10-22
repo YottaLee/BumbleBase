@@ -104,22 +104,22 @@ func (table *BTreeIndex) TableFindRange(startKey int64, endKey int64) ([]utils.E
 	// startkey
 	startCursor, err := table.TableFind(startKey)
 	if err != nil {
-		return entrylist, err
+		return nil, err
 	}
 	startEntry, err := startCursor.GetEntry()
 	if err != nil {
-		return entrylist, err
+		return nil, err
 	}
 	// check is reach the end
 	for !startCursor.IsEnd() && startEntry.GetKey() < endKey {
 		entrylist = append(entrylist, startEntry)
 		err = startCursor.StepForward()
 		if err != nil {
-			return entrylist, err
+			return nil, err
 		}
 		newEntry, err := startCursor.GetEntry()
 		if err != nil {
-			return entrylist, err
+			return nil, err
 		}
 		startEntry = newEntry
 	}
