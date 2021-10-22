@@ -66,7 +66,7 @@ func (table *BTreeIndex) TableEnd() (utils.Cursor, error) {
 	}
 
 	rightMostNode := pageToLeafNode(curPage)
-	cursor.isEnd = true
+	cursor.isEnd = (rightMostNode.numKeys == 0)
 	cursor.curNode = rightMostNode
 	return &cursor, nil
 }
@@ -83,78 +83,44 @@ func (table *BTreeIndex) TableFind(key int64) (utils.Cursor, error) {
 		return nil, err
 	}
 	defer curPage.Put()
-	curHeader := pageToNodeHeader(curPage)
-
-	for curHeader.nodeType != LEAF_NODE {
-		curNode := pageToInternalNode(curPage)
-		i := curNode.search(key)
-		nextPN := curNode.getPNAt(i)
-		curPage, err = table.pager.GetPage(nextPN)
-		if err != nil {
-			return nil, err
-		}
-		defer curPage.Put()
-		curHeader = pageToNodeHeader(curPage)
+	rootNode := pageToNode(curPage)
+	curNode, idx, err := rootNode.keyToNodeEntry(key)
+	if err != nil {
+		cursor.cellnum = idx
+		return &cursor, err
 	}
 
-	curNode := pageToLeafNode(curPage)
 	cursor.isEnd = (curNode.numKeys == 0)
+	cursor.cellnum = idx
 	cursor.curNode = curNode
 	return &cursor, nil
-
-	/*
-		if curHeader.nodeType == LEAF_NODE {
-			curNode := pageToInternalNode(curPage)
-			i := curNode.search(key)
-
-
-			c := func(i int) bool {
-				return curNode.getKeyAt(int64(i)) >= key
-			}
-			i := int64(sort.Search(int(curNode.numKeys-1), c))
-			return
-		}
-
-		curHeader := pageToNodeHeader(curPage)
-		for curHeader.nodeType != LEAF_NODE {
-			curNode := pageToInternalNode(curPage)
-		}
-		return &cursor, nil
-	*/
 }
 
 // TableFindRange returns a slice of Entries with keys between the startKey and endKey.
 func (table *BTreeIndex) TableFindRange(startKey int64, endKey int64) ([]utils.Entry, error) {
 	//panic("function not yet implemented")
-	var entrylist []utils.Entry
+	entrylist := make([]utils.Entry, 0)
 	// startkey
-	startCursor, err1 := table.TableFind(startKey)
-	if err1 != nil {
-		return entrylist, err1
+	startCursor, err := table.TableFind(startKey)
+	if err != nil {
+		return entrylist, err
 	}
-	startEntry, _ := startCursor.GetEntry()
-
-	// endKey
-	endCursor, err2 := table.TableFind(endKey)
-	if err2 != nil {
-		return entrylist, err2
+	startEntry, err := startCursor.GetEntry()
+	if err != nil {
+		return entrylist, err
 	}
-	endEntry, _ := endCursor.GetEntry()
 
-	for startEntry.GetKey() != endEntry.GetKey() {
-		currentEntry, err := startCursor.GetEntry()
-		if err != nil {
-			return entrylist, err
-		}
-		entrylist = append(entrylist, currentEntry)
+	for !startCursor.IsEnd() && startEntry.GetKey() != endKey {
+		entrylist = append(entrylist, startEntry)
 		err = startCursor.StepForward()
 		if err != nil {
 			return entrylist, err
 		}
-		startEntry, err = startCursor.GetEntry()
+		newEntry, err := startCursor.GetEntry()
 		if err != nil {
 			return entrylist, err
 		}
+		startEntry = newEntry
 	}
 	return entrylist, nil
 }
