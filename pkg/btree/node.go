@@ -298,7 +298,7 @@ func (node *InternalNode) split() Split {
 		nextNode.updateKeyAt(i-startIndex-1, node.getKeyAt(i))
 		nextNode.updatePNAt(i-startIndex-1, node.getPNAt(i))
 	}
-	nextNode.updateKeyAt(newNumKeys, node.getKeyAt(node.numKeys))
+	nextNode.updatePNAt(newNumKeys, node.getPNAt(node.numKeys))
 	nextNode.updateNumKeys(newNumKeys)
 
 	// set original node size
