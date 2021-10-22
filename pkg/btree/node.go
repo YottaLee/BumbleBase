@@ -290,7 +290,7 @@ func (node *InternalNode) insertSplit(split Split) Split {
 	node.updatePNAt(index+1, split.rightPN)
 
 	// if need split again
-	if node.numKeys > KEYS_PER_INTERNAL_NODE {
+	if node.numKeys >= KEYS_PER_INTERNAL_NODE {
 		new_split := node.split()
 		return new_split
 	}
