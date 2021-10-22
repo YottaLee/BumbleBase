@@ -46,10 +46,7 @@ func (node *LeafNode) search(key int64) int64 {
 		return node.getKeyAt(int64(i)) >= key
 	}
 	i := int64(sort.Search(int(node.numKeys), c))
-	if i < node.numKeys {
-		return i
-	}
-	return node.numKeys
+	return i
 }
 
 // insert finds the appropriate place in a leaf node to insert a new tuple.
@@ -92,10 +89,6 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 		}
 	}
 
-	// have to insert new node
-	//fmt.Printf("before insert, size : %d \n", node.numKeys)
-	//fmt.Printf("after insert, size : %d \n", node.numKeys)
-
 	// need to split
 	if node.numKeys >= ENTRIES_PER_LEAF_NODE {
 		return node.split()
@@ -112,9 +105,9 @@ func (node *LeafNode) delete(key int64) {
 	if index >= node.numKeys || node.getKeyAt(index) != key {
 		return
 	}
-	for i := index; i < node.numKeys-1; i++ {
-		node.updateKeyAt(i, node.getKeyAt(i+1))
-		node.updateValueAt(i, node.getValueAt(i+1))
+	for i := index + 1; i < node.numKeys; i++ {
+		node.updateKeyAt(i-1, node.getKeyAt(i))
+		node.updateValueAt(i-1, node.getValueAt(i))
 	}
 	node.updateNumKeys(node.numKeys - 1)
 }
@@ -139,11 +132,11 @@ func (node *LeafNode) split() Split {
 	// copy data
 	startIndex := node.numKeys / 2
 	newNumKeys := node.numKeys - startIndex
-	nextNode.updateNumKeys(newNumKeys)
 	for i := startIndex; i < node.numKeys; i++ {
 		nextNode.updateKeyAt(i-startIndex, node.getKeyAt(i))
 		nextNode.updateValueAt(i-startIndex, node.getValueAt(i))
 	}
+	nextNode.updateNumKeys(newNumKeys)
 	// set pointers
 	nextNode.setRightSibling(node.rightSiblingPN)
 	node.updateNumKeys(startIndex)
@@ -272,9 +265,6 @@ func (node *InternalNode) insertSplit(split Split) Split {
 		leftPN:  -1,
 		rightPN: -1,
 		err:     split.err,
-	}
-	if !split.isSplit {
-		return result
 	}
 	// find index for split
 	index := node.search(split.key)
