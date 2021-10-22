@@ -111,7 +111,7 @@ func (table *BTreeIndex) TableFindRange(startKey int64, endKey int64) ([]utils.E
 		return entrylist, err
 	}
 	// check is reach the end
-	for !startCursor.IsEnd() && startEntry.GetKey() != endKey {
+	for !startCursor.IsEnd() && startEntry.GetKey() < endKey {
 		entrylist = append(entrylist, startEntry)
 		err = startCursor.StepForward()
 		if err != nil {
