@@ -274,8 +274,9 @@ func (node *InternalNode) insertSplit(split Split) Split {
 		node.updateKeyAt(i+1, node.getKeyAt(i))
 		node.updatePNAt(i+1, node.getPNAt(i))
 	}
-	node.updateNumKeys(node.numKeys + 1)
 	node.updateKeyAt(index, split.key)
+	node.updateNumKeys(node.numKeys + 1)
+
 	node.updatePNAt(index, split.leftPN)
 	node.updatePNAt(index+1, split.rightPN)
 
@@ -309,10 +310,6 @@ func (node *InternalNode) split() Split {
 		leftPN:  -1,
 		rightPN: -1,
 		err:     nil,
-	}
-	if node.numKeys < ENTRIES_PER_LEAF_NODE {
-		result.isSplit = false
-		return result
 	}
 	nextNode, err := createInternalNode(node.page.GetPager())
 	defer nextNode.getPage().Put()
