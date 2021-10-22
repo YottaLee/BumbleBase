@@ -156,27 +156,46 @@ func (table *BTreeIndex) Delete(key int64) error {
 // Select returns a slice of all entries in the table.
 func (table *BTreeIndex) Select() ([]utils.Entry, error) {
 	//panic("function not yet implemented");
-	startCursor, err1 := table.TableStart()
-	if err1 != nil {
-		return nil, nil
-	}
-	endCursor, err2 := table.TableEnd()
-	if err2 != nil {
-		return nil, nil
-	}
 
-	startEntry, err3 := startCursor.GetEntry()
-	if err3 != nil {
-		return nil, nil
+	var result []utils.Entry
+	cursor, err := table.TableStart()
+	if err != nil {
+		return result, nil
 	}
-	endEntry, err4 := endCursor.GetEntry()
-	if err4 != nil {
-		return nil, nil
+	for err == nil {
+		if cursor.IsEnd() {
+			err = cursor.StepForward()
+		} else {
+			entry, _ := cursor.GetEntry()
+			result = append(result, entry)
+			err = cursor.StepForward()
+		}
 	}
+	return result, nil
 
-	startKey := startEntry.GetKey()
-	endKey := endEntry.GetKey()
-	return table.TableFindRange(startKey, endKey)
+	/*
+		startCursor, err1 := table.TableStart()
+		if err1 != nil {
+			return nil, nil
+		}
+		endCursor, err2 := table.TableEnd()
+		if err2 != nil {
+			return nil, nil
+		}
+
+		startEntry, err3 := startCursor.GetEntry()
+		if err3 != nil {
+			return nil, nil
+		}
+		endEntry, err4 := endCursor.GetEntry()
+		if err4 != nil {
+			return nil, nil
+		}
+
+		startKey := startEntry.GetKey()
+		endKey := endEntry.GetKey()
+		return table.TableFindRange(startKey, endKey)
+	*/
 }
 
 // Print will pretty-print all nodes in the table.
