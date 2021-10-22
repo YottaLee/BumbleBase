@@ -167,33 +167,6 @@ func (node *LeafNode) keyToNodeEntry(key int64) (*LeafNode, int64, error) {
 }
 
 // printNode pretty prints our leaf node.
-/*
-func (node *LeafNode) printNode(w io.Writer, firstPrefix string, prefix string) {
-	// Format header data.
-	var nodeType string = "Leaf"
-	var isRoot string
-	if node.isRoot() {
-		isRoot = " (root)"
-	}
-	numKeys := strconv.Itoa(int(node.numKeys))
-	// Print header data.
-	io.WriteString(w, fmt.Sprintf("%v[%v] %v%v size: %v\n",
-		firstPrefix, node.page.GetPageNum(), nodeType, isRoot, numKeys))
-	// Print entries.
-	for cellnum := int64(0); cellnum < node.numKeys; cellnum++ {
-		entry := node.getCell(cellnum)
-		io.WriteString(w, fmt.Sprintf("%v |--> (%v, %v)\n",
-			prefix, entry.GetKey(), entry.GetValue()))
-	}
-	if node.rightSiblingPN > 0 {
-		io.WriteString(w, fmt.Sprintf("%v |--+\n", prefix))
-		io.WriteString(w, fmt.Sprintf("%v    | right sibling @ [%v]\n",
-			prefix, node.rightSiblingPN))
-		io.WriteString(w, fmt.Sprintf("%v    v\n", prefix))
-	}
-}
-*/
-
 func (node *LeafNode) printNode(w io.Writer, firstPrefix string, prefix string) {
 	// Format header data.
 	var nodeType string = "Leaf"
@@ -249,8 +222,7 @@ func (node *InternalNode) insert(key int64, value int64, update bool) Split {
 	// if child node need split
 	if split_struct.isSplit {
 		//insert split into internal node
-		internal_split := node.insertSplit(split_struct)
-		return internal_split
+		split_struct = node.insertSplit(split_struct)
 	}
 	return split_struct
 }
@@ -259,12 +231,9 @@ func (node *InternalNode) insert(key int64, value int64, update bool) Split {
 // If this insertion results in another split, the split is cascaded upwards.
 func (node *InternalNode) insertSplit(split Split) Split {
 	//panic("function not yet implemented");
-	result := Split{
-		isSplit: false,
-		key:     -1,
-		leftPN:  -1,
-		rightPN: -1,
-		err:     split.err,
+	if !split.isSplit {
+		// no need for insertion
+		return Split{false, 0, 0, 0, split.err}
 	}
 	// find index for split
 	index := node.search(split.key)
@@ -281,11 +250,7 @@ func (node *InternalNode) insertSplit(split Split) Split {
 	node.updatePNAt(index+1, split.rightPN)
 
 	// if need split again
-	if node.numKeys >= KEYS_PER_INTERNAL_NODE {
-		new_split := node.split()
-		return new_split
-	}
-	return result
+	return node.split()
 }
 
 // delete removes a given tuple from the leaf node, if the given key exists.
@@ -299,6 +264,7 @@ func (node *InternalNode) delete(key int64) {
 	}
 	defer childnode.getPage().Put()
 	childnode.delete(key)
+	return
 }
 
 // split is a helper function that splits an internal node, then propagates the split upwards.
@@ -310,6 +276,11 @@ func (node *InternalNode) split() Split {
 		leftPN:  -1,
 		rightPN: -1,
 		err:     nil,
+	}
+	if node.numKeys < ENTRIES_PER_LEAF_NODE {
+		// No need to split
+		result.isSplit = false
+		return result
 	}
 	nextNode, err := createInternalNode(node.page.GetPager())
 	defer nextNode.getPage().Put()
