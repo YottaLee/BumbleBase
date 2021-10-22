@@ -280,7 +280,7 @@ func (node *InternalNode) insertSplit(split Split) Split {
 	index := node.search(split.key)
 	// shift index behind, and insert new key
 	node.updatePNAt(node.numKeys+1, node.getPNAt(node.numKeys))
-	for i := node.numKeys - 1; i > index; i-- {
+	for i := node.numKeys - 1; i >= index; i-- {
 		node.updateKeyAt(i+1, node.getKeyAt(i))
 		node.updatePNAt(i+1, node.getPNAt(i))
 	}
