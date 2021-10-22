@@ -56,7 +56,7 @@ func (table *BTreeIndex) TableEnd() (utils.Cursor, error) {
 	curHeader := pageToNodeHeader(curPage)
 	for curHeader.nodeType != LEAF_NODE {
 		curNode := pageToInternalNode(curPage)
-		rightMostPN := curNode.getPNAt(curNode.numKeys - 1)
+		rightMostPN := curNode.getPNAt(curNode.numKeys)
 		curPage, err = table.pager.GetPage(rightMostPN)
 		if err != nil {
 			return nil, err
@@ -68,6 +68,7 @@ func (table *BTreeIndex) TableEnd() (utils.Cursor, error) {
 	rightMostNode := pageToLeafNode(curPage)
 	cursor.isEnd = (rightMostNode.numKeys == 0)
 	cursor.curNode = rightMostNode
+	cursor.cellnum = rightMostNode.numKeys - 1
 	return &cursor, nil
 }
 
@@ -109,7 +110,7 @@ func (table *BTreeIndex) TableFindRange(startKey int64, endKey int64) ([]utils.E
 	if err != nil {
 		return entrylist, err
 	}
-
+	// check is reach the end
 	for !startCursor.IsEnd() && startEntry.GetKey() != endKey {
 		entrylist = append(entrylist, startEntry)
 		err = startCursor.StepForward()
