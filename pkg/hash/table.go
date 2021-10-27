@@ -136,7 +136,7 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 		}
 	}
 	buckets := table.GetBuckets()
-	newhash := 1<<(localDepth-1) + hash
+	newhash := int64(powInt(2, localDepth-1) + hash)
 	fmt.Printf("newbucket hash: %d\n", newhash)
 	buckets[newhash] = newbucket.page.GetPageNum()
 
