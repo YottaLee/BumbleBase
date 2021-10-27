@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"sort"
 
 	pager "github.com/brown-csci1270/db/pkg/pager"
 	utils "github.com/brown-csci1270/db/pkg/utils"
@@ -42,14 +41,24 @@ func (bucket *HashBucket) GetPage() *pager.Page {
 // Finds the entry with the given key.
 func (bucket *HashBucket) Find(key int64) (utils.Entry, bool) {
 	//panic("function not yet implemented");
-	c := func(i int) bool {
-		return bucket.getKeyAt(int64(i)) == key
+	/*
+		c := func(i int) bool {
+			return bucket.getKeyAt(int64(i)) == key
+		}
+		i := int64(sort.Search(int(bucket.numKeys), c))
+	*/
+	var idx int64
+	for i := 0; i < int(bucket.numKeys); i++ {
+		if bucket.getKeyAt(int64(i)) == key {
+			idx = int64(i)
+			break
+		}
 	}
-	i := int64(sort.Search(int(bucket.numKeys), c))
-	if i == bucket.numKeys || bucket.getKeyAt(i) != key {
+
+	if idx == bucket.numKeys || bucket.getKeyAt(idx) != key {
 		return nil, false
 	}
-	return bucket.getCell(i), true
+	return bucket.getCell(idx), true
 }
 
 // Inserts the given key-value pair, splits if necessary.
@@ -68,17 +77,25 @@ func (bucket *HashBucket) Insert(key int64, value int64) (bool, error) {
 // Update the given key-value pair, should never split.
 func (bucket *HashBucket) Update(key int64, value int64) error {
 	//panic("function not yet implemented");
-
-	c := func(i int) bool {
-		return bucket.getKeyAt(int64(i)) == key
+	/*
+		c := func(i int) bool {
+			return bucket.getKeyAt(int64(i)) == key
+		}
+		i := int64(sort.Search(int(bucket.numKeys), c))
+	*/
+	var idx int64
+	for i := 0; i < int(bucket.numKeys); i++ {
+		if bucket.getKeyAt(int64(i)) == key {
+			idx = int64(i)
+			break
+		}
 	}
-	i := int64(sort.Search(int(bucket.numKeys), c))
 
-	if i == bucket.numKeys || bucket.getKeyAt(i) != key {
+	if idx == bucket.numKeys || bucket.getKeyAt(idx) != key {
 		return errors.New("Can not update nonexistent key value")
 	}
 
-	bucket.updateValueAt(i, value)
+	bucket.updateValueAt(idx, value)
 	return nil
 }
 

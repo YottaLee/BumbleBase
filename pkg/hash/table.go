@@ -119,18 +119,16 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 		tvalue := bucket.getValueAt(int64(i))
 
 		newhash := Hasher(tkey, localDepth)
-		fmt.Printf("key: %d, old hash: %d\n, newhash: %d \n", tkey, hash, newhash)
+		fmt.Printf("key: %d, old hash: %d, newhash: %d \n", tkey, hash, newhash)
 		if hash != newhash {
 			fmt.Printf("key to delete: %d\n", tkey)
 
 			err = table.Delete(tkey)
 			if err != nil {
-				fmt.Printf("err1\n")
 				return err
 			}
 			_, err = newbucket.Insert(tkey, tvalue)
 			if err != nil {
-				fmt.Printf("err2\n")
 				return err
 			}
 		}
