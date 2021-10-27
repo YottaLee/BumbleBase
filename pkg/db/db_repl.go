@@ -47,7 +47,7 @@ func HandleCreateTable(d *Database, payload string, w io.Writer) (err error) {
 	case "hash":
 		tableType = HashIndexType
 	default:
-		return errors.New("internal error in create table handler")
+		return errors.New("create error: internal error")
 	}
 	tableName := fields[3]
 	_, err = d.createTable(tableName, tableType)
@@ -102,11 +102,11 @@ func HandleInsert(d *Database, payload string) (err error) {
 	tableName := fields[4]
 	table, err := d.GetTable(tableName)
 	if err != nil {
-		return fmt.Errorf("find error: %v", err)
+		return fmt.Errorf("insert error: %v", err)
 	}
 	val, _ := table.Find(int64(key))
 	if val != nil {
-		return fmt.Errorf("find error: %v", err)
+		return fmt.Errorf("insert error: key already in table")
 	}
 	err = table.Insert(int64(key), int64(value))
 	if err != nil {
@@ -133,7 +133,7 @@ func HandleUpdate(d *Database, payload string) (err error) {
 	tableName := fields[1]
 	table, err := d.GetTable(tableName)
 	if err != nil {
-		return fmt.Errorf("find error: %v", err)
+		return fmt.Errorf("update error: %v", err)
 	}
 	err = table.Update(int64(key), int64(value))
 	if err != nil {
@@ -152,16 +152,16 @@ func HandleDelete(d *Database, payload string) (err error) {
 		return fmt.Errorf("usage: delete <key> from <table>")
 	}
 	if key, err = strconv.Atoi(fields[1]); err != nil {
-		return fmt.Errorf("update error: %v", err)
+		return fmt.Errorf("delete error: %v", err)
 	}
 	tableName := fields[3]
 	table, err := d.GetTable(tableName)
 	if err != nil {
-		return fmt.Errorf("find error: %v", err)
+		return fmt.Errorf("delete error: %v", err)
 	}
 	err = table.Delete(int64(key))
 	if err != nil {
-		return fmt.Errorf("update error: %v", err)
+		return fmt.Errorf("delete error: %v", err)
 	}
 	return nil
 }
@@ -177,7 +177,7 @@ func HandleSelect(d *Database, payload string, w io.Writer) (err error) {
 	tableName := fields[2]
 	table, err := d.GetTable(tableName)
 	if err != nil {
-		return fmt.Errorf("find error: %v", err)
+		return fmt.Errorf("select error: %v", err)
 	}
 	var results []utils.Entry
 	if results, err = table.Select(); err != nil {
@@ -196,18 +196,18 @@ func HandlePretty(d *Database, payload string, w io.Writer) (err error) {
 		tableName := fields[2]
 		table, err := d.GetTable(tableName)
 		if err != nil {
-			return fmt.Errorf("find error: %v", err)
+			return fmt.Errorf("pretty error: %v", err)
 		}
 		table.Print(w)
 	} else if numFields == 4 && fields[2] == "from" {
 		var pn int
 		if pn, err = strconv.Atoi(fields[1]); err != nil {
-			return fmt.Errorf("print error: %v", err)
+			return fmt.Errorf("pretty error: %v", err)
 		}
 		tableName := fields[3]
 		table, err := d.GetTable(tableName)
 		if err != nil {
-			return fmt.Errorf("find error: %v", err)
+			return fmt.Errorf("pretty error: %v", err)
 		}
 		table.PrintPN(pn, w)
 	} else {

@@ -10,6 +10,7 @@ import (
 
 	btree "github.com/brown-csci1270/db/pkg/btree"
 	config "github.com/brown-csci1270/db/pkg/config"
+	hash "github.com/brown-csci1270/db/pkg/hash"
 	pager "github.com/brown-csci1270/db/pkg/pager"
 	utils "github.com/brown-csci1270/db/pkg/utils"
 )
@@ -104,6 +105,11 @@ func (db *Database) createTable(name string, indexType IndexType) (index Index, 
 		if err != nil {
 			return nil, err
 		}
+	case HashIndexType:
+		index, err = hash.OpenTable(path)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		return nil, errors.New("invalid index type")
 	}
@@ -123,9 +129,18 @@ func (db *Database) GetTable(name string) (index Index, err error) {
 		return nil, errors.New("table not found")
 	}
 	// Else, open from disk.
-	index, err = btree.OpenTable(path)
-	if err != nil {
-		return nil, err
+	// NOTE: This is janky; assumes that if a .meta file exists, then it is a hash index,
+	// else, it is a btree index.
+	if _, err := os.Stat(path + ".meta"); err == nil {
+		index, err = hash.OpenTable(path)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		index, err = btree.OpenTable(path)
+		if err != nil {
+			return nil, err
+		}
 	}
 	db.tables[name] = index
 	return index, nil
