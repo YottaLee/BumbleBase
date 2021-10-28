@@ -134,7 +134,6 @@ func (pager *Pager) ReadPageFromDisk(page *Page, pagenum int64) error {
 // NewPage returns an unused buffer from the free or unpinned list
 // the ptMtx should be locked on entry
 func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
-	/* SOLUTION {{{ */
 	var newPage *Page
 	if freeLink := pager.freeList.PeekHead(); freeLink != nil {
 		// Check the free list first
@@ -155,13 +154,10 @@ func (pager *Pager) NewPage(pagenum int64) (*Page, error) {
 	newPage.dirty = false
 	newPage.pinCount = 1
 	return newPage, nil
-	/* SOLUTION }}} */
 }
 
 // getPage returns the page corresponding to the given pagenum.
 func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
-	/* SOLUTION {{{ */
-	// Input checking.
 	if pagenum < 0 {
 		return nil, errors.New("invalid pagenum")
 	}
@@ -204,12 +200,10 @@ func (pager *Pager) GetPage(pagenum int64) (page *Page, err error) {
 	newLink = pager.pinnedList.PushTail(page)
 	pager.pageTable[pagenum] = newLink
 	return page, nil
-	/* SOLUTION }}} */
 }
 
 // Flush a particular page to disk.
 func (pager *Pager) FlushPage(page *Page) {
-	/* SOLUTION {{{ */
 	if pager.HasFile() && page.IsDirty() {
 		pager.file.WriteAt(
 			*page.data,
@@ -217,17 +211,14 @@ func (pager *Pager) FlushPage(page *Page) {
 		)
 		page.SetDirty(false)
 	}
-	/* SOLUTION }}} */
 }
 
 // Flushes all dirty pages.
 func (pager *Pager) FlushAllPages() {
-	/* SOLUTION {{{ */
 	writer := func(link *list.Link) {
 		page := link.GetKey().(*Page)
 		pager.FlushPage(page)
 	}
 	pager.pinnedList.Map(writer)
 	pager.unpinnedList.Map(writer)
-	/* SOLUTION }}} */
 }
