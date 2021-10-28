@@ -41,12 +41,6 @@ func (bucket *HashBucket) GetPage() *pager.Page {
 // Finds the entry with the given key.
 func (bucket *HashBucket) Find(key int64) (utils.Entry, bool) {
 	//panic("function not yet implemented");
-	/*
-		c := func(i int) bool {
-			return bucket.getKeyAt(int64(i)) == key
-		}
-		i := int64(sort.Search(int(bucket.numKeys), c))
-	*/
 	var idx int64
 	for i := 0; i < int(bucket.numKeys); i++ {
 		if bucket.getKeyAt(int64(i)) == key {
@@ -61,14 +55,13 @@ func (bucket *HashBucket) Find(key int64) (utils.Entry, bool) {
 // Inserts the given key-value pair, splits if necessary.
 func (bucket *HashBucket) Insert(key int64, value int64) (bool, error) {
 	//panic("function not yet implemented")
+	if bucket.numKeys == BUCKETSIZE {
+		return true, nil
+	}
 	bucket.updateKeyAt(bucket.numKeys, key)
 	bucket.updateValueAt(bucket.numKeys, value)
 	bucket.updateNumKeys(bucket.numKeys + 1)
-	if bucket.numKeys == BUCKETSIZE {
-		return true, nil
-	} else {
-		return false, nil
-	}
+	return false, nil
 }
 
 // Update the given key-value pair, should never split.
@@ -84,16 +77,13 @@ func (bucket *HashBucket) Update(key int64, value int64) error {
 	for i := 0; i < int(bucket.numKeys); i++ {
 		if bucket.getKeyAt(int64(i)) == key {
 			idx = int64(i)
-			break
+			bucket.updateValueAt(idx, value)
+			return nil
 		}
 	}
 
-	if idx == bucket.numKeys || bucket.getKeyAt(idx) != key {
-		return errors.New("Can not update nonexistent key value")
-	}
+	return errors.New("Can not update nonexistent key value")
 
-	bucket.updateValueAt(idx, value)
-	return nil
 }
 
 // Delete the given key-value pair, does not coalesce.
@@ -105,7 +95,7 @@ func (bucket *HashBucket) Delete(key int64) error {
 		}
 		idx := int64(sort.Search(int(bucket.numKeys), c))
 	*/
-	var idx int64
+	idx := int64(-1)
 	for i := 0; i < int(bucket.numKeys); i++ {
 		if bucket.getKeyAt(int64(i)) == key {
 			idx = int64(i)
@@ -113,7 +103,7 @@ func (bucket *HashBucket) Delete(key int64) error {
 		}
 	}
 
-	if idx == bucket.numKeys {
+	if idx == -1 {
 		fmt.Printf("err, index: %d key: %d\n", idx, key)
 
 		return errors.New("Can not delete nonexistent key")
@@ -132,6 +122,9 @@ func (bucket *HashBucket) Delete(key int64) error {
 func (bucket *HashBucket) Select() ([]utils.Entry, error) {
 	//panic("function not yet implemented");
 	entrylist := make([]utils.Entry, 0)
+	if entrylist == nil {
+		return nil, errors.New("select error: internal error")
+	}
 	for i := 0; i < int(bucket.numKeys); i++ {
 		entry := bucket.getCell(int64(i))
 		entrylist = append(entrylist, entry)

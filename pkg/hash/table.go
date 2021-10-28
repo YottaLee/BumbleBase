@@ -77,6 +77,7 @@ func (table *HashTable) Find(key int64) (utils.Entry, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer bucket.GetPage().Put()
 	entry, found := bucket.Find(key)
 	if found {
 		return entry, nil
@@ -101,6 +102,7 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 		table.ExtendTable()
 	}
 	// increase local depth
+	newhash := 1<<localDepth + hash
 	localDepth = localDepth + 1
 	bucket.updateDepth(localDepth)
 
@@ -109,35 +111,36 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 	if err != nil {
 		return err
 	}
+	defer newbucket.GetPage().Put()
 	keyNum := bucket.numKeys
-	if err != nil {
-		return err
-	}
+	oldbucketindex := int64(0)
+	newbucketindex := int64(0)
 	fmt.Printf("total size: %d\n", keyNum)
 	for i := 0; i < int(keyNum); i++ {
 		tkey := bucket.getKeyAt(int64(i))
 		tvalue := bucket.getValueAt(int64(i))
 
-		newhash := Hasher(tkey, localDepth)
-		fmt.Printf("key: %d, old hash: %d, newhash: %d \n", tkey, hash, newhash)
-		if hash != newhash {
-			fmt.Printf("key to delete: %d\n", tkey)
-
-			err = table.Delete(tkey)
-			if err != nil {
-				return err
-			}
-			_, err = newbucket.Insert(tkey, tvalue)
-			if err != nil {
-				return err
-			}
+		newhashkey := Hasher(tkey, localDepth)
+		if hash != newhashkey {
+			newbucket.updateKeyAt(newbucketindex, tkey)
+			newbucket.updateValueAt(newbucketindex, tvalue)
+			newbucketindex += 1
+		} else {
+			bucket.updateKeyAt(oldbucketindex, tkey)
+			bucket.updateValueAt(oldbucketindex, tvalue)
+			oldbucketindex += 1
 		}
 	}
-	buckets := table.GetBuckets()
-	newhash := int64(powInt(2, localDepth-1) + hash)
-	fmt.Printf("newbucket hash: %d\n", newhash)
-	buckets[newhash] = newbucket.page.GetPageNum()
+	bucket.updateNumKeys(oldbucketindex)
+	newbucket.updateNumKeys(newbucketindex)
+	newPageNum := newbucket.page.GetPageNum()
+	mask := (int64(1) << localDepth) - 1
 
+	for i := int64(0); i < powInt(2, table.depth); i++ {
+		if (i & mask) == newhash {
+			table.buckets[i] = newPageNum
+		}
+	}
 	return nil
 }
 
@@ -149,13 +152,28 @@ func (table *HashTable) Insert(key int64, value int64) error {
 	if err != nil {
 		return err
 	}
+	defer bucket.GetPage().Put()
+	// try to insert
 	needSplit, err := bucket.Insert(key, value)
 	if err != nil {
 		return err
 	}
-	if needSplit {
-		return table.Split(bucket, hash)
+	if !needSplit {
+		return nil
 	}
+	// split bucket
+	err = table.Split(bucket, hash)
+	if err != nil {
+		return err
+	}
+	// insert again
+	hash = Hasher(key, table.depth)
+	newbucket, err := table.GetBucket(hash)
+	if err != nil {
+		return err
+	}
+	defer newbucket.GetPage().Put()
+	newbucket.Insert(key, value)
 	return nil
 }
 
@@ -167,6 +185,7 @@ func (table *HashTable) Update(key int64, value int64) error {
 	if err != nil {
 		return err
 	}
+	defer bucket.GetPage().Put()
 	return bucket.Update(key, value)
 }
 
@@ -178,6 +197,7 @@ func (table *HashTable) Delete(key int64) error {
 	if err != nil {
 		return err
 	}
+	defer bucket.GetPage().Put()
 	return bucket.Delete(key)
 }
 
@@ -192,6 +212,7 @@ func (table *HashTable) Select() ([]utils.Entry, error) {
 		if err != nil {
 			return entrylist, err
 		}
+		defer bucket.GetPage().Put()
 		// Get all entries
 		entries, err := bucket.Select()
 		if err != nil {
