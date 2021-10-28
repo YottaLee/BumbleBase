@@ -78,11 +78,11 @@ func (table *HashTable) Find(key int64) (utils.Entry, error) {
 		return nil, err
 	}
 	defer bucket.GetPage().Put()
-	entry, found := bucket.Find(key)
-	if found {
+	entry, _ := bucket.Find(key)
+	if entry != nil {
 		return entry, nil
 	} else {
-		return entry, errors.New("can not found key")
+		return nil, errors.New("can not found key")
 	}
 }
 
