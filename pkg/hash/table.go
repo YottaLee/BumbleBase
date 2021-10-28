@@ -96,61 +96,51 @@ func (table *HashTable) ExtendTable() {
 func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 	//panic("function not yet implemented")
 
-	if bucket.depth == table.depth {
-		// extend the table
+	// need table extend
+	localDepth := bucket.GetDepth()
+	if localDepth == table.GetDepth() {
 		table.ExtendTable()
 	}
-
-	// calculate the hash key for the new bucket
+	// increase local depth
 	oldHash := Hasher(hash, bucket.depth)
-	newHash := oldHash + 1<<bucket.depth
+	newHash := 1<<localDepth + Hasher(hash, localDepth)
+	localDepth = localDepth + 1
+	bucket.updateDepth(localDepth)
 
-	newBucketDepth := bucket.depth + 1
-
-	// increase the current bucket's depth by one
-	bucket.updateDepth(newBucketDepth)
-
-	// try to create the new bucket with depth increased by one
-	newBucket, err := NewHashBucket(table.pager, newBucketDepth)
+	//new bucket
+	newbucket, err := NewHashBucket(table.GetPager(), localDepth)
 	if err != nil {
 		return err
 	}
-	defer newBucket.GetPage().Put()
+	defer newbucket.GetPage().Put()
+	keyNum := bucket.numKeys
+	oldbucketindex := int64(0)
+	newbucketindex := int64(0)
+	for i := 0; i < int(keyNum); i++ {
+		tkey := bucket.getKeyAt(int64(i))
+		tvalue := bucket.getValueAt(int64(i))
 
-	// reorganize the entries in old bucket and move to new bucket if needed
-	oldBucketEntryCount := int64(0)
-	newBucketEntryCount := int64(0)
-
-	// recalculate the hash for each key with the new depth and update the entries
-	for i := int64(0); i < bucket.numKeys; i++ {
-		key := bucket.getKeyAt(i)
-		value := bucket.getValueAt(i)
-		// calculate the hash of the key under the new depth
-		hashedKey := Hasher(key, newBucketDepth)
-
-		if hashedKey == oldHash {
-			bucket.updateKeyAt(oldBucketEntryCount, key)
-			bucket.updateValueAt(oldBucketEntryCount, value)
-			oldBucketEntryCount += 1
+		newhashkey := Hasher(tkey, localDepth)
+		if oldHash != newhashkey {
+			newbucket.updateKeyAt(newbucketindex, tkey)
+			newbucket.updateValueAt(newbucketindex, tvalue)
+			newbucketindex += 1
 		} else {
-			newBucket.updateKeyAt(newBucketEntryCount, key)
-			newBucket.updateValueAt(newBucketEntryCount, value)
-			newBucketEntryCount += 1
+			bucket.updateKeyAt(oldbucketindex, tkey)
+			bucket.updateValueAt(oldbucketindex, tvalue)
+			oldbucketindex += 1
 		}
 	}
+	bucket.updateNumKeys(oldbucketindex)
+	newbucket.updateNumKeys(newbucketindex)
+	newPageNum := newbucket.page.GetPageNum()
+	mask := (int64(1) << localDepth) - 1
 
-	// update the numKeys after the reorganization
-	bucket.updateNumKeys(oldBucketEntryCount)
-	newBucket.updateNumKeys(newBucketEntryCount)
-
-	newPN := newBucket.GetPage().GetPageNum()
-	mask := (int64(1) << newBucketDepth) - 1
 	for i := int64(0); i < powInt(2, table.depth); i++ {
 		if (i & mask) == newHash {
-			table.buckets[i] = newPN
+			table.buckets[i] = newPageNum
 		}
 	}
-
 	return nil
 }
 
