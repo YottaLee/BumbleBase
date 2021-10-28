@@ -19,7 +19,6 @@ var NUM_KEYS_SIZE int64 = binary.MaxVarintLen64
 var BUCKET_HEADER_SIZE int64 = DEPTH_SIZE + NUM_KEYS_SIZE
 var ENTRYSIZE int64 = binary.MaxVarintLen64 * 2                    // int64 key, int64 value
 var BUCKETSIZE int64 = (PAGESIZE - BUCKET_HEADER_SIZE) / ENTRYSIZE // num entries
-//var BUCKETSIZE int64 = 4
 
 // getHash returns the hash of a key, given a hashing function.
 func getHash(hasher func(b []byte) uint64, key int64, size int64) uint {
