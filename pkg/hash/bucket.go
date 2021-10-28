@@ -67,12 +67,6 @@ func (bucket *HashBucket) Insert(key int64, value int64) (bool, error) {
 // Update the given key-value pair, should never split.
 func (bucket *HashBucket) Update(key int64, value int64) error {
 	//panic("function not yet implemented");
-	/*
-		c := func(i int) bool {
-			return bucket.getKeyAt(int64(i)) == key
-		}
-		i := int64(sort.Search(int(bucket.numKeys), c))
-	*/
 	var idx int64
 	for i := 0; i < int(bucket.numKeys); i++ {
 		if bucket.getKeyAt(int64(i)) == key {
@@ -89,12 +83,6 @@ func (bucket *HashBucket) Update(key int64, value int64) error {
 // Delete the given key-value pair, does not coalesce.
 func (bucket *HashBucket) Delete(key int64) error {
 	//panic("function not yet implemented");
-	/*
-		c := func(i int) bool {
-			return bucket.getKeyAt(int64(i)) == key
-		}
-		idx := int64(sort.Search(int(bucket.numKeys), c))
-	*/
 	idx := int64(-1)
 	for i := 0; i < int(bucket.numKeys); i++ {
 		if bucket.getKeyAt(int64(i)) == key {

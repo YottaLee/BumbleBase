@@ -102,7 +102,7 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 		table.ExtendTable()
 	}
 	// increase local depth
-	newhash := 1<<localDepth + hash
+	newhash := 1<<localDepth + Hasher(hash, localDepth)
 	localDepth = localDepth + 1
 	bucket.updateDepth(localDepth)
 
@@ -167,7 +167,7 @@ func (table *HashTable) Insert(key int64, value int64) error {
 		return err
 	}
 	// insert again
-	hash = Hasher(key, table.depth)
+	hash = Hasher(key, table.GetDepth())
 	newbucket, err := table.GetBucket(hash)
 	if err != nil {
 		return err
@@ -216,7 +216,7 @@ func (table *HashTable) Select() ([]utils.Entry, error) {
 		// Get all entries
 		entries, err := bucket.Select()
 		if err != nil {
-			return entrylist, err
+			return nil, err
 		}
 		entrylist = append(entrylist, entries...)
 	}
