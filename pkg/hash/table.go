@@ -1,4 +1,4 @@
-npackage hash
+package hash
 
 import (
 	"errors"
@@ -102,7 +102,7 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 
 	// calculate the hash key for the new bucket
 	oldHash := Hasher(hash, bucket.depth)
-	newHash := oldHash + 1 << bucket.depth
+	newHash := oldHash + 1<<bucket.depth
 
 	newBucketDepth := bucket.depth + 1
 
@@ -174,7 +174,7 @@ func (table *HashTable) Insert(key int64, value int64) error {
 	// if the bucket overflows, then perform the split first
 	err = table.Split(bucket, hashedKey)
 	if err != nil {
-		return err;
+		return err
 	}
 
 	// then try to insert
