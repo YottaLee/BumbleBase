@@ -51,14 +51,11 @@ func (bucket *HashBucket) Find(key int64) (utils.Entry, bool) {
 	for i := 0; i < int(bucket.numKeys); i++ {
 		if bucket.getKeyAt(int64(i)) == key {
 			idx = int64(i)
-			break
+			return bucket.getCell(idx), true
 		}
 	}
 
-	if idx == bucket.numKeys || bucket.getKeyAt(idx) != key {
-		return nil, false
-	}
-	return bucket.getCell(idx), true
+	return nil, false
 }
 
 // Inserts the given key-value pair, splits if necessary.
@@ -67,7 +64,7 @@ func (bucket *HashBucket) Insert(key int64, value int64) (bool, error) {
 	bucket.updateKeyAt(bucket.numKeys, key)
 	bucket.updateValueAt(bucket.numKeys, value)
 	bucket.updateNumKeys(bucket.numKeys + 1)
-	if bucket.numKeys > BUCKETSIZE {
+	if bucket.numKeys == BUCKETSIZE {
 		return true, nil
 	} else {
 		return false, nil
