@@ -71,19 +71,19 @@ func (table *HashTable) GetPager() *pager.Pager {
 
 // Finds the entry with the given key.
 func (table *HashTable) Find(key int64) (utils.Entry, error) {
-	//panic("function not yet implemented");
-	hash := Hasher(key, table.GetDepth())
-	bucket, err := table.GetBucket(hash)
+	hashedKey := Hasher(key, table.depth)
+	bucket, err := table.GetBucket(hashedKey)
 	if err != nil {
 		return nil, err
 	}
 	defer bucket.GetPage().Put()
+
 	entry, _ := bucket.Find(key)
-	if entry != nil {
-		return entry, nil
-	} else {
-		return nil, errors.New("can not found key")
+	if entry == nil {
+		return nil, errors.New("find error: entry not found")
 	}
+
+	return entry, nil
 }
 
 // ExtendTable increases the global depth of the table by 1.
@@ -94,7 +94,7 @@ func (table *HashTable) ExtendTable() {
 
 // Split the given bucket into two, extending the table if necessary.
 func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
-	//panic("function not yet implemented")
+	// The bucket depth is already the size of the global depth
 	if bucket.depth == table.depth {
 		// extend the table
 		table.ExtendTable()
@@ -153,44 +153,47 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 	return nil
 }
 
-// Inserts the given key-value pair, splits if necessary.
+// Insert Inserts the given key-value pair, splits if necessary.
 func (table *HashTable) Insert(key int64, value int64) error {
-	//panic("function not yet implemented")
-	hash := Hasher(key, table.GetDepth())
-	bucket, err := table.GetBucket(hash)
+	hashedKey := Hasher(key, table.depth)
+	bucket, err := table.GetBucket(hashedKey)
 	if err != nil {
 		return err
 	}
 	defer bucket.GetPage().Put()
-	// try to insert
-	needSplit, err := bucket.Insert(key, value)
+
+	overflow, err := bucket.Insert(key, value)
 	if err != nil {
 		return err
 	}
-	if !needSplit {
+
+	if !overflow {
+		// if no overflow, return immediately
 		return nil
 	}
-	// split bucket
-	err = table.Split(bucket, hash)
+	// if the bucket overflows, then perform the split first
+	err = table.Split(bucket, hashedKey)
 	if err != nil {
 		return err
 	}
-	// insert again
-	hash = Hasher(key, table.GetDepth())
-	newbucket, err := table.GetBucket(hash)
+
+	// then try to insert
+	hashedKey = Hasher(key, table.depth)
+	newBucket, err := table.GetBucket(hashedKey)
 	if err != nil {
 		return err
 	}
-	defer newbucket.GetPage().Put()
-	newbucket.Insert(key, value)
+	defer newBucket.GetPage().Put()
+
+	newBucket.Insert(key, value)
+
 	return nil
 }
 
 // Update the given key-value pair.
 func (table *HashTable) Update(key int64, value int64) error {
-	//panic("function not yet implemented")
-	hash := Hasher(key, table.GetDepth())
-	bucket, err := table.GetBucket(hash)
+	hashedKey := Hasher(key, table.depth)
+	bucket, err := table.GetBucket(hashedKey)
 	if err != nil {
 		return err
 	}
@@ -200,9 +203,8 @@ func (table *HashTable) Update(key int64, value int64) error {
 
 // Delete the given key-value pair, does not coalesce.
 func (table *HashTable) Delete(key int64) error {
-	//panic("function not yet implemented")
-	hash := Hasher(key, table.GetDepth())
-	bucket, err := table.GetBucket(hash)
+	hashedKey := Hasher(key, table.depth)
+	bucket, err := table.GetBucket(hashedKey)
 	if err != nil {
 		return err
 	}
@@ -212,24 +214,26 @@ func (table *HashTable) Delete(key int64) error {
 
 // Select all entries in this table.
 func (table *HashTable) Select() ([]utils.Entry, error) {
-	//panic("function not yet implemented")
-	entrylist := make([]utils.Entry, 0)
-	buckets := table.GetBuckets()
-	for _, pn := range buckets {
-		// Get bucket
-		bucket, err := table.GetBucketByPN(pn)
-		if err != nil {
-			return entrylist, err
-		}
-		defer bucket.GetPage().Put()
-		// Get all entries
-		entries, err := bucket.Select()
+	ret := make([]utils.Entry, 0)
+	for _, bucketPN := range table.buckets {
+		// get the bucket
+		bucket, err := table.GetBucketByPN(bucketPN)
 		if err != nil {
 			return nil, err
 		}
-		entrylist = append(entrylist, entries...)
+
+		defer bucket.GetPage().Put()
+
+		// select the entries from the bucket
+		newEntries, err := bucket.Select()
+		if err != nil {
+			return nil, err
+		}
+		// concatenate the new entries with the old ones
+		ret = append(ret, newEntries...)
 	}
-	return entrylist, nil
+
+	return ret, nil
 }
 
 // Print out each bucket.
