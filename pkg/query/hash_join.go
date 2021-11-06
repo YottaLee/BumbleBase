@@ -41,7 +41,35 @@ func buildHashIndex(
 		return nil, "", err
 	}
 	// Build the hash index.
-	panic("function not yet implemented");
+	//panic("function not yet implemented");
+	cursor, err := sourceTable.TableStart()
+	if err != nil {
+		return nil, "", err
+	}
+	for {
+		if !cursor.IsEnd() {
+			entry, err := cursor.GetEntry()
+			if err != nil {
+				return nil, "", err
+			}
+
+			if !useKey {
+				err = tempIndex.Insert(entry.GetValue(), entry.GetKey())
+			} else {
+				err = tempIndex.Insert(entry.GetKey(), entry.GetValue())
+			}
+
+			if err != nil {
+				return nil, "", err
+			}
+		}
+
+		err = cursor.StepForward()
+		if err != nil {
+			break
+		}
+	}
+	return tempIndex, dbName, nil
 }
 
 // sendResult attempts to send a single join result to the resultsChan channel as long as the errgroup hasn't been cancelled.
@@ -70,7 +98,56 @@ func probeBuckets(
 	defer lBucket.GetPage().Put()
 	defer rBucket.GetPage().Put()
 	// Probe buckets.
-	panic("function not yet implemented");
+	//panic("function not yet implemented");
+	lentries, err := lBucket.Select()
+	if err != nil {
+		return err
+	}
+
+	rentries, err := rBucket.Select()
+	if err != nil {
+		return err
+	}
+
+	filter := CreateFilter(DEFAULT_FILTER_SIZE)
+	for _, re := range rentries {
+		filter.Insert(re.GetKey())
+	}
+
+	for _, le := range lentries {
+		contains := filter.Contains(le.GetKey())
+		if !contains {
+			continue
+		}
+
+		for _, re := range rentries {
+			if le.GetKey() == re.GetKey() {
+				var lhash, rhash hash.HashEntry
+
+				if joinOnLeftKey {
+					lhash.SetKey(le.GetKey())
+					lhash.SetValue(le.GetValue())
+				} else {
+					lhash.SetKey(le.GetKey())
+					lhash.SetValue(le.GetValue())
+				}
+
+				if joinOnRightKey {
+					rhash.SetKey(re.GetKey())
+					rhash.SetValue(re.GetValue())
+				} else {
+					rhash.SetKey(re.GetValue())
+					rhash.SetValue(re.GetKey())
+				}
+
+				err = sendResult(ctx, resultsChan, EntryPair{l: lhash, r: rhash})
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // Join leftTable on rightTable using Grace Hash Join.
