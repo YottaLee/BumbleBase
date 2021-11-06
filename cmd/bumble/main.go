@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+
 	// "log"
 	// "net"
 	"os"
@@ -10,11 +11,12 @@ import (
 	"syscall"
 
 	config "github.com/brown-csci1270/db/pkg/config"
-	repl "github.com/brown-csci1270/db/pkg/repl"
+	db "github.com/brown-csci1270/db/pkg/db"
 	list "github.com/brown-csci1270/db/pkg/list"
 	pager "github.com/brown-csci1270/db/pkg/pager"
-	db "github.com/brown-csci1270/db/pkg/db"
-	// query "github.com/brown-csci1270/db/pkg/query"
+	query "github.com/brown-csci1270/db/pkg/query"
+	repl "github.com/brown-csci1270/db/pkg/repl"
+
 	// concurrency "github.com/brown-csci1270/db/pkg/concurrency"
 	// recovery "github.com/brown-csci1270/db/pkg/recovery"
 
@@ -79,7 +81,7 @@ func main() {
 
 	// [CONCURRENCY]
 	// var portFlag = flag.Int("p", DEFAULT_PORT, "port number")
-	
+
 	flag.Parse()
 
 	// [BTREE]
@@ -131,10 +133,10 @@ func main() {
 		repls = append(repls, db.DatabaseRepl(database))
 
 	// [QUERY]
-	// case "query":
-	// 	server = false
-	// 	repls = append(repls, db.DatabaseRepl(database))
-	// 	repls = append(repls, query.QueryRepl(database))
+	case "query":
+		server = false
+		repls = append(repls, db.DatabaseRepl(database))
+		repls = append(repls, query.QueryRepl(database))
 
 	// [CONCURRENCY]
 	// case "concurrency":
@@ -171,8 +173,8 @@ func main() {
 
 	// Start server if server (concurrency or recovery), else run REPL here.
 	if server {
-	// 	[CONCURRENCY]
-	// 	startServer(r, tm, prompt, *portFlag)
+		// 	[CONCURRENCY]
+		// 	startServer(r, tm, prompt, *portFlag)
 	} else {
 		r.Run(nil, uuid.New(), prompt)
 	}
