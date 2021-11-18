@@ -2,6 +2,8 @@ package btree
 
 import (
 	"encoding/binary"
+	"errors"
+	"fmt"
 
 	pager "github.com/brown-csci1270/db/pkg/pager"
 )
@@ -34,6 +36,9 @@ var KEYS_OFFSET int64 = INTERNAL_NODE_HEADER_SIZE
 var KEYS_SIZE int64 = KEY_SIZE * (KEYS_PER_INTERNAL_NODE + 1)
 var PNS_OFFSET int64 = KEYS_OFFSET + KEYS_SIZE
 
+// [CONCURRENCY]
+var SUPER_NODE *InternalNode = &InternalNode{NodeHeader{INTERNAL_NODE, 0, &pager.Page{}}, nil}
+
 // NodeType identifies if a node is a leaf node or internal node.
 type NodeType bool
 
@@ -53,11 +58,13 @@ type NodeHeader struct {
 type LeafNode struct {
 	NodeHeader           // Include header information
 	rightSiblingPN int64 // Page number of the right sibling node
+	parent         Node  // Pointer to the parent node for unlocking.
 }
 
 // Internal Node definition
 type InternalNode struct {
-	NodeHeader // Include header information
+	NodeHeader      // Include header information
+	parent     Node // Pointer to the parent node for unlocking.
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -128,6 +135,7 @@ func pageToLeafNode(page *pager.Page) *LeafNode {
 	return &LeafNode{
 		nodeHeader,
 		rightSiblingPN,
+		nil,
 	}
 }
 
@@ -242,7 +250,7 @@ func (node *LeafNode) updateNumKeys(nKeys int64) {
 // pageToInternalNode returns the internal node corresponding to the given page.
 func pageToInternalNode(page *pager.Page) *InternalNode {
 	nodeHeader := pageToNodeHeader(page)
-	return &InternalNode{nodeHeader}
+	return &InternalNode{nodeHeader, nil}
 }
 
 // createInternalNode creates and returns a new internal node.
@@ -311,13 +319,17 @@ func (node *InternalNode) updatePNAt(index int64, pagenum int64) {
 }
 
 // getChildAt returns the internal node's ith child.
+// if lock is true, the child page will be locked.
 // Nodes created with this function must be `Put()` accordingly after use.
-func (node *InternalNode) getChildAt(index int64) (Node, error) {
+func (node *InternalNode) getChildAt(index int64, lock bool) (Node, error) {
 	// Get the child's page
 	pagenum := node.getPNAt(index)
 	page, err := node.page.GetPager().GetPage(pagenum)
 	if err != nil {
 		return &InternalNode{}, err
+	}
+	if lock {
+		page.WLock()
 	}
 	return pageToNode(page), nil
 }
@@ -329,4 +341,115 @@ func (node *InternalNode) updateNumKeys(nKeys int64) {
 	nKeysData := make([]byte, NUM_KEYS_SIZE)
 	binary.PutVarint(nKeysData, nKeys)
 	node.page.Update(nKeysData, NUM_KEYS_OFFSET, NUM_KEYS_SIZE)
+}
+
+/////////////////////////////////////////////////////////////////////////////
+////////////////////////// Lock  Helper Functions ///////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+
+func initRootNode(root Node) {
+	switch castedRootNode := root.(type) {
+	case *InternalNode:
+		castedRootNode.parent = SUPER_NODE
+	case *LeafNode:
+		castedRootNode.parent = SUPER_NODE
+	}
+}
+
+// locks the super node and the root node.
+func lockRoot(page *pager.Page) {
+	SUPER_NODE.page.WLock()
+	page.WLock()
+}
+
+// unlocks the super node and the root node. should only be called
+// if the student has not finished concurrency yet.
+func unsafeUnlockRoot(root Node) {
+	// Lock the root node.
+	switch castedRootNode := root.(type) {
+	case *InternalNode:
+		if castedRootNode.parent != nil {
+			// Emit a warning to disable this function call.
+			fmt.Println("WARNING: unsafeUnlockRoot was called. This function will only be called if theroot node is not being unlocked properly.")
+			castedRootNode.parent = nil
+			castedRootNode.page.WUnlock()
+			SUPER_NODE.page.WUnlock()
+		}
+	case *LeafNode:
+		if castedRootNode.parent != nil {
+			// Emit a warning to disable this function call.
+			fmt.Println("WARNING: unsafeUnlockRoot was called. This function will only be called if the root node is not being unlocked properly.")
+			castedRootNode.parent = nil
+			castedRootNode.page.WUnlock()
+			SUPER_NODE.page.WUnlock()
+		}
+	}
+}
+
+func (node *InternalNode) initChild(child Node) {
+	// Set the NodeLockHeader parent field to be this node and lock the node.
+	switch castedChild := child.(type) {
+	case *InternalNode:
+		castedChild.parent = node
+	case *LeafNode:
+		castedChild.parent = node
+	}
+}
+
+// unlockParent checks to see if the node could split.
+// if not, will unlock parents. if so, does nothing.
+// only checks if force == false
+func (node *InternalNode) unlockParent(force bool) error {
+	// If we could split and if we're not writing, don't unlock the parents.
+	if !force && node.numKeys == KEYS_PER_INTERNAL_NODE {
+		return nil
+	}
+	// Else, unlock the parents recursively, and remove parent pointers.
+	parent := node.parent
+	node.parent = nil
+	for parent != nil {
+		switch castedParent := parent.(type) {
+		case *InternalNode:
+			parent = castedParent.parent
+			castedParent.unlock()
+		case *LeafNode:
+			return errors.New("should never have a leaf as a parent")
+		}
+	}
+	return nil
+}
+
+// unlock this internal node.
+func (node *InternalNode) unlock() {
+	node.parent = nil
+	node.page.WUnlock()
+}
+
+// unlockParent checks to see if the node could split.
+// if not, will unlock parents. if so, does nothing.
+// only checks if force == false
+func (node *LeafNode) unlockParent(force bool) error {
+	// If we could split and if we're not writing, don't unlock the parents.
+	if !force && node.numKeys == ENTRIES_PER_LEAF_NODE {
+		return nil
+	}
+	// Unlock the parents recursively, and remove parent pointers.
+	parent := node.parent
+	node.parent = nil
+	for parent != nil {
+		switch castedParent := parent.(type) {
+		case *InternalNode:
+			parent = castedParent.parent
+			castedParent.unlock()
+		case *LeafNode:
+			return errors.New("should never have a leaf as a parent")
+		}
+	}
+	return nil
+}
+
+// unlock this leaf node.
+func (node *LeafNode) unlock() {
+	node.parent = nil
+	node.page.WUnlock()
 }

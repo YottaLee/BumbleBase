@@ -20,6 +20,15 @@ var BUCKET_HEADER_SIZE int64 = DEPTH_SIZE + NUM_KEYS_SIZE
 var ENTRYSIZE int64 = binary.MaxVarintLen64 * 2                    // int64 key, int64 value
 var BUCKETSIZE int64 = (PAGESIZE - BUCKET_HEADER_SIZE) / ENTRYSIZE // num entries
 
+// Lock Types
+type BucketLockType int
+
+const (
+	NO_LOCK    BucketLockType = 0
+	WRITE_LOCK BucketLockType = 1
+	READ_LOCK  BucketLockType = 2
+)
+
 // getHash returns the hash of a key, given a hashing function.
 func getHash(hasher func(b []byte) uint64, key int64, size int64) uint {
 	buf := make([]byte, binary.MaxVarintLen64)
@@ -122,18 +131,24 @@ func pageToBucket(page *pager.Page) *HashBucket {
 }
 
 // Returns the bucket in the hash table using its page number, and increments the bucket ref count.
-func (table *HashTable) GetBucketByPN(pn int64) (*HashBucket, error) {
+func (table *HashTable) GetBucketByPN(pn int64, lock BucketLockType) (*HashBucket, error) {
 	page, err := table.pager.GetPage(pn)
 	if err != nil {
 		return nil, err
+	}
+	if lock == READ_LOCK {
+		page.RLock()
+	}
+	if lock == WRITE_LOCK {
+		page.WLock()
 	}
 	return pageToBucket(page), nil
 }
 
 // Returns the bucket in the hash table, and increments the bucket ref count.
-func (table *HashTable) GetBucket(hash int64) (*HashBucket, error) {
+func (table *HashTable) GetBucket(hash int64, lock BucketLockType) (*HashBucket, error) {
 	pagenum := table.buckets[hash]
-	bucket, err := table.GetBucketByPN(pagenum)
+	bucket, err := table.GetBucketByPN(pagenum, lock)
 	if err != nil {
 		return nil, err
 	}

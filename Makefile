@@ -1,4 +1,4 @@
-.PHONY: all build clean test bench cover cover-out docker_build docker_run
+mske .PHONY: all build clean test bench cover cover-out docker_build docker_run
 
 all: build
 
@@ -10,7 +10,7 @@ clean:
 	rm -rf data
 
 test:
-	go test ./test/* -v
+	go test ./test/* -v -race
 
 bench:
 	go test ./pkg/* -bench=.

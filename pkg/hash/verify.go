@@ -1,10 +1,11 @@
 package hash
 
-func IsHash(table *HashTable) (bool, error) {
+func IsHash(index *HashIndex) (bool, error) {
+	table := index.GetTable()
 	buckets := table.GetBuckets()
 	for _, pn := range buckets {
 		// Get bucket
-		bucket, err := table.GetBucketByPN(pn)
+		bucket, err := table.GetBucketByPN(pn, NO_LOCK)
 		d := bucket.GetDepth()
 		if err != nil {
 			return false, err
@@ -18,7 +19,7 @@ func IsHash(table *HashTable) (bool, error) {
 		for _, e := range entries {
 			key := e.GetKey()
 			hash := Hasher(key, d)
-			if hash != pn%d {
+			if pn != table.buckets[hash] {
 				return false, nil
 			}
 		}

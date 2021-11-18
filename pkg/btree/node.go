@@ -212,7 +212,7 @@ func (node *InternalNode) insert(key int64, value int64, update bool) Split {
 	//panic("function not yet implemented");
 	//search index, recursion in child node
 	i := node.search(key)
-	childnode, err := node.getChildAt(i)
+	childnode, err := node.getChildAt(i, false)
 	if err != nil {
 		return Split{false, 0, 0, 0, err}
 	}
@@ -258,7 +258,7 @@ func (node *InternalNode) delete(key int64) {
 	//panic("function not yet implemented");
 	//search index, recursion in child node
 	i := node.search(key)
-	childnode, err := node.getChildAt(i)
+	childnode, err := node.getChildAt(i, false)
 	if err != nil {
 		return
 	}
@@ -313,7 +313,7 @@ func (node *InternalNode) split() Split {
 // get returns the value associated with a given key from the leaf node.
 func (node *InternalNode) get(key int64) (value int64, found bool) {
 	childIdx := node.search(key)
-	child, err := node.getChildAt(childIdx)
+	child, err := node.getChildAt(childIdx, false)
 	if err != nil {
 		return 0, false
 	}
@@ -324,7 +324,7 @@ func (node *InternalNode) get(key int64) (value int64, found bool) {
 // keyToNodeEntry is a helper function to create cursors that point to a given index within a leaf node.
 func (node *InternalNode) keyToNodeEntry(key int64) (*LeafNode, int64, error) {
 	index := node.search(key)
-	child, err := node.getChildAt(index)
+	child, err := node.getChildAt(index, false)
 	if err != nil {
 		return &LeafNode{}, 0, err
 	}
@@ -349,7 +349,7 @@ func (node *InternalNode) printNode(w io.Writer, firstPrefix string, prefix stri
 	nextPrefix := prefix + " |    "
 	for idx := int64(0); idx <= node.numKeys; idx++ {
 		io.WriteString(w, fmt.Sprintf("%v\n", nextPrefix))
-		child, err := node.getChildAt(idx)
+		child, err := node.getChildAt(idx, false)
 		if err != nil {
 			return
 		}

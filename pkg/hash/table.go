@@ -73,7 +73,7 @@ func (table *HashTable) GetPager() *pager.Pager {
 func (table *HashTable) Find(key int64) (utils.Entry, error) {
 	//panic("function not yet implemented");
 	hash := Hasher(key, table.GetDepth())
-	bucket, err := table.GetBucket(hash)
+	bucket, err := table.GetBucket(hash, NO_LOCK)
 	if err != nil {
 		return nil, err
 	}
@@ -154,7 +154,7 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 func (table *HashTable) Insert(key int64, value int64) error {
 	//panic("function not yet implemented")
 	hash := Hasher(key, table.GetDepth())
-	bucket, err := table.GetBucket(hash)
+	bucket, err := table.GetBucket(hash, NO_LOCK)
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func (table *HashTable) Insert(key int64, value int64) error {
 	}
 	// insert again
 	hash = Hasher(key, table.GetDepth())
-	newbucket, err := table.GetBucket(hash)
+	newbucket, err := table.GetBucket(hash, NO_LOCK)
 	if err != nil {
 		return err
 	}
@@ -187,7 +187,7 @@ func (table *HashTable) Insert(key int64, value int64) error {
 func (table *HashTable) Update(key int64, value int64) error {
 	//panic("function not yet implemented")
 	hash := Hasher(key, table.GetDepth())
-	bucket, err := table.GetBucket(hash)
+	bucket, err := table.GetBucket(hash, NO_LOCK)
 	if err != nil {
 		return err
 	}
@@ -199,7 +199,7 @@ func (table *HashTable) Update(key int64, value int64) error {
 func (table *HashTable) Delete(key int64) error {
 	//panic("function not yet implemented")
 	hash := Hasher(key, table.GetDepth())
-	bucket, err := table.GetBucket(hash)
+	bucket, err := table.GetBucket(hash, NO_LOCK)
 	if err != nil {
 		return err
 	}
@@ -214,7 +214,7 @@ func (table *HashTable) Select() ([]utils.Entry, error) {
 	buckets := table.GetBuckets()
 	for _, pn := range buckets {
 		// Get bucket
-		bucket, err := table.GetBucketByPN(pn)
+		bucket, err := table.GetBucketByPN(pn, NO_LOCK)
 		if err != nil {
 			return entrylist, err
 		}
@@ -237,7 +237,7 @@ func (table *HashTable) Print(w io.Writer) {
 	io.WriteString(w, fmt.Sprintf("global depth: %d\n", table.depth))
 	for i := range table.buckets {
 		io.WriteString(w, fmt.Sprintf("====\nbucket %d\n", i))
-		bucket, err := table.GetBucket(int64(i))
+		bucket, err := table.GetBucket(int64(i), NO_LOCK)
 		if err != nil {
 			continue
 		}
@@ -257,7 +257,7 @@ func (table *HashTable) PrintPN(pn int, w io.Writer) {
 		fmt.Println("out of bounds")
 		return
 	}
-	bucket, err := table.GetBucketByPN(int64(pn))
+	bucket, err := table.GetBucketByPN(int64(pn), NO_LOCK)
 	if err != nil {
 		return
 	}
