@@ -11,21 +11,22 @@ const NOPAGE = -1
 
 // A page is a unit that is read from and written to disk.
 type Page struct {
-	pager    *Pager // Pointer to the pager that this page belongs to.
-	pagenum  int64  // Position of the page in the file.
-	pinCount int64  // The number of active references to this page.
-	dirty    bool   // Flag on whether data has to be written back.
-	rwlock   sync.RWMutex
-	data     *[]byte // Serialized data.
+	pager      *Pager       // Pointer to the pager that this page belongs to.
+	pagenum    int64        // Position of the page in the file.
+	pinCount   int64        // The number of active references to this page.
+	dirty      bool         // Flag on whether data has to be written back.
+	rwlock     sync.RWMutex // Readers-writers lock on the page itself
+	updateLock sync.Mutex   // Mutex for updating data in a page
+	data       *[]byte      // Serialized data.
 }
 
 // Get the pager.
-func (page Page) GetPager() *Pager {
+func (page *Page) GetPager() *Pager {
 	return page.pager
 }
 
 // Get the pagenum.
-func (page Page) GetPageNum() int64 {
+func (page *Page) GetPageNum() int64 {
 	return page.pagenum
 }
 
@@ -69,6 +70,8 @@ func (page *Page) Put() {
 
 // Update the target page with `size` bytes of the the given data.
 func (page *Page) Update(data []byte, offset int64, size int64) {
+	page.updateLock.Lock()
+	defer page.updateLock.Unlock()
 	page.dirty = true
 	copy((*page.data)[offset:offset+size], data)
 }
