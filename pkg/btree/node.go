@@ -69,14 +69,13 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	if update {
 		// find the update key
 		_ = node.unlockParent(true)
-		if index < node.numKeys && node.getKeyAt(index) == key {
-			node.updateValueAt(index, value)
-			return ressplit
-		} else {
+		if index >= node.numKeys || node.getKeyAt(index) != key {
 			// can not find the update key
 			ressplit.err = errors.New("Can not update nonexistent key")
 			return ressplit
 		}
+		node.updateValueAt(index, value)
+		return ressplit
 	} else { // not update
 		//insert key already exists
 		if index < node.numKeys && node.getKeyAt(index) == key {
@@ -229,7 +228,7 @@ func (node *InternalNode) insert(key int64, value int64, update bool) Split {
 	_ = node.unlockParent(false)
 
 	i := node.search(key)
-	childnode, err := node.getChildAt(i, false)
+	childnode, err := node.getChildAt(i, true)
 	if err != nil {
 		_ = node.unlockParent(true)
 		node.unlock()
@@ -284,7 +283,7 @@ func (node *InternalNode) delete(key int64) {
 	//search index, recursion in child node
 	_ = node.unlockParent(true)
 	i := node.search(key)
-	childnode, err := node.getChildAt(i, false)
+	childnode, err := node.getChildAt(i, true)
 	if err != nil {
 		return
 	}
@@ -341,7 +340,7 @@ func (node *InternalNode) split() Split {
 func (node *InternalNode) get(key int64) (value int64, found bool) {
 	_ = node.unlockParent(true)
 	childIdx := node.search(key)
-	child, err := node.getChildAt(childIdx, false)
+	child, err := node.getChildAt(childIdx, true)
 	if err != nil {
 		return 0, false
 	}
@@ -353,7 +352,7 @@ func (node *InternalNode) get(key int64) (value int64, found bool) {
 // keyToNodeEntry is a helper function to create cursors that point to a given index within a leaf node.
 func (node *InternalNode) keyToNodeEntry(key int64) (*LeafNode, int64, error) {
 	index := node.search(key)
-	child, err := node.getChildAt(index, false)
+	child, err := node.getChildAt(index, true)
 	if err != nil {
 		return &LeafNode{}, 0, err
 	}
