@@ -9,13 +9,14 @@ import (
 	"os/signal"
 	"syscall"
 
+	concurrency "github.com/brown-csci1270/db/pkg/concurrency"
 	config "github.com/brown-csci1270/db/pkg/config"
-	repl "github.com/brown-csci1270/db/pkg/repl"
+	db "github.com/brown-csci1270/db/pkg/db"
 	list "github.com/brown-csci1270/db/pkg/list"
 	pager "github.com/brown-csci1270/db/pkg/pager"
-	db "github.com/brown-csci1270/db/pkg/db"
 	query "github.com/brown-csci1270/db/pkg/query"
-	concurrency "github.com/brown-csci1270/db/pkg/concurrency"
+	repl "github.com/brown-csci1270/db/pkg/repl"
+
 	// recovery "github.com/brown-csci1270/db/pkg/recovery"
 
 	uuid "github.com/google/uuid"
@@ -79,7 +80,7 @@ func main() {
 
 	// [CONCURRENCY]
 	var portFlag = flag.Int("p", DEFAULT_PORT, "port number")
-	
+
 	flag.Parse()
 
 	// [BTREE]
@@ -171,7 +172,7 @@ func main() {
 
 	// Start server if server (concurrency or recovery), else run REPL here.
 	if server {
-	// 	[CONCURRENCY]
+		// 	[CONCURRENCY]
 		startServer(r, tm, prompt, *portFlag)
 	} else {
 		r.Run(nil, uuid.New(), prompt)
