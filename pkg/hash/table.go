@@ -71,22 +71,29 @@ func (table *HashTable) GetPager() *pager.Pager {
 
 // Finds the entry with the given key.
 func (table *HashTable) Find(key int64) (utils.Entry, error) {
-	//panic("function not yet implemented");
+	/* SOLUTION {{{ */
+	// Hash the key.
 	table.RLock()
-	hash := Hasher(key, table.GetDepth())
+	hash := Hasher(key, table.depth)
+	if hash < 0 || int(hash) >= len(table.buckets) {
+		return nil, errors.New("not found")
+	}
+	// Get the corresponding bucket.
 	bucket, err := table.GetBucket(hash, READ_LOCK)
 	defer bucket.RUnlock()
 	table.RUnlock()
 	if err != nil {
 		return nil, err
 	}
-	defer bucket.GetPage().Put()
-	entry, _ := bucket.Find(key)
-	if entry != nil {
-		return entry, nil
-	} else {
-		return nil, errors.New("can not found key")
+	defer bucket.page.Put()
+
+	// Find the entry.
+	entry, found := bucket.Find(key)
+	if !found {
+		return nil, errors.New("not found")
 	}
+	return entry, nil
+	/* SOLUTION }}} */
 }
 
 // ExtendTable increases the global depth of the table by 1.
@@ -97,97 +104,85 @@ func (table *HashTable) ExtendTable() {
 
 // Split the given bucket into two, extending the table if necessary.
 func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
-	//panic("function not yet implemented")
-
-	// need table extend
-	localDepth := bucket.GetDepth()
-	if localDepth == table.GetDepth() {
+	/* SOLUTION {{{ */
+	// Figure out where the new pointer should live.
+	oldHash := (hash % powInt(2, bucket.depth))
+	newHash := oldHash + powInt(2, bucket.depth)
+	// If we are splitting, check if we need to double the table first.
+	if bucket.depth == table.depth {
 		table.ExtendTable()
 	}
-	// increase local depth
-	oldHash := Hasher(hash, bucket.depth)
-	newHash := 1<<localDepth + Hasher(hash, localDepth)
-	localDepth = localDepth + 1
-	bucket.updateDepth(localDepth)
-
-	//new bucket
-	newbucket, err := NewHashBucket(table.GetPager(), localDepth)
+	// Next, make a new bucket.
+	bucket.updateDepth(bucket.depth + 1)
+	newBucket, err := NewHashBucket(table.pager, bucket.depth)
 	if err != nil {
 		return err
 	}
-	defer newbucket.GetPage().Put()
-	keyNum := bucket.numKeys
-	oldbucketindex := int64(0)
-	newbucketindex := int64(0)
-	for i := 0; i < int(keyNum); i++ {
-		tkey := bucket.getKeyAt(int64(i))
-		tvalue := bucket.getValueAt(int64(i))
+	defer newBucket.page.Put()
 
-		newhashkey := Hasher(tkey, localDepth)
-		if oldHash != newhashkey {
-			newbucket.updateKeyAt(newbucketindex, tkey)
-			newbucket.updateValueAt(newbucketindex, tvalue)
-			newbucketindex += 1
+	// Move entries over to it.
+	tmpEntries := make([]HashEntry, bucket.numKeys)
+	for i := int64(0); i < bucket.numKeys; i++ {
+		tmpEntries[i] = bucket.getCell(i)
+	}
+	oldNKeys := int64(0)
+	newNKeys := int64(0)
+	for _, entry := range tmpEntries {
+		if Hasher(entry.GetKey(), bucket.depth) == newHash {
+			newBucket.modifyCell(newNKeys, entry)
+			newNKeys++
 		} else {
-			bucket.updateKeyAt(oldbucketindex, tkey)
-			bucket.updateValueAt(oldbucketindex, tvalue)
-			oldbucketindex += 1
+			bucket.modifyCell(oldNKeys, entry)
+			oldNKeys++
 		}
 	}
-	bucket.updateNumKeys(oldbucketindex)
-	if oldbucketindex == BUCKETSIZE {
-		table.Split(bucket, oldHash)
+	// Initialize bucket attributes.
+	bucket.updateNumKeys(oldNKeys)
+	newBucket.updateNumKeys(newNKeys)
+	power := bucket.depth
+	// Point the rest of the buckets to the new page.
+	for i := newHash; i < powInt(2, table.depth); {
+		table.buckets[i] = newBucket.page.GetPageNum()
+		i += powInt(2, power)
 	}
-	newbucket.updateNumKeys(newbucketindex)
-	if newbucketindex == BUCKETSIZE {
-		table.Split(newbucket, newHash)
+	// Check if recursive splitting is required
+	if oldNKeys >= BUCKETSIZE {
+		return table.Split(bucket, oldHash)
 	}
-	newPageNum := newbucket.page.GetPageNum()
-	mask := (int64(1) << localDepth) - 1
-
-	for i := int64(0); i < powInt(2, table.depth); i++ {
-		if (i & mask) == newHash {
-			table.buckets[i] = newPageNum
-		}
+	if newNKeys >= BUCKETSIZE {
+		return table.Split(newBucket, newHash)
 	}
 	return nil
+	/* SOLUTION }}} */
 }
 
 // Inserts the given key-value pair, splits if necessary.
 func (table *HashTable) Insert(key int64, value int64) error {
-	//panic("function not yet implemented")
 	table.WLock()
 	defer table.WUnlock()
-	hash := Hasher(key, table.GetDepth())
-	bucket, err := table.GetBucket(hash, WRITE_LOCK)
+
+	hashedKey := Hasher(key, table.depth)
+	bucket, err := table.GetBucket(hashedKey, WRITE_LOCK)
+
 	defer bucket.WUnlock()
+
 	if err != nil {
 		return err
 	}
 	defer bucket.GetPage().Put()
-	// try to insert
-	needSplit, err := bucket.Insert(key, value)
+
+	overflow, err := bucket.Insert(key, value)
+
 	if err != nil {
 		return err
 	}
-	if !needSplit {
+
+	if !overflow {
 		return nil
 	}
-	// split bucket
-	err = table.Split(bucket, hash)
-	if err != nil {
-		return err
-	}
-	// insert again
-	hash = Hasher(key, table.GetDepth())
-	newbucket, err := table.GetBucket(hash, WRITE_LOCK)
-	defer newbucket.WUnlock()
-	if err != nil {
-		return err
-	}
-	defer newbucket.GetPage().Put()
-	newbucket.Insert(key, value)
-	return nil
+	err = table.Split(bucket, hashedKey)
+
+	return err
 }
 
 // Update the given key-value pair.
@@ -223,27 +218,31 @@ func (table *HashTable) Delete(key int64) error {
 
 // Select all entries in this table.
 func (table *HashTable) Select() ([]utils.Entry, error) {
-	//panic("function not yet implemented")
+	ret := make([]utils.Entry, 0)
+
 	table.RLock()
 	defer table.RUnlock()
-	entrylist := make([]utils.Entry, 0)
-	buckets := table.GetBuckets()
-	for _, pn := range buckets {
-		// Get bucket
-		bucket, err := table.GetBucketByPN(pn, READ_LOCK)
-		if err != nil {
-			return entrylist, err
-		}
-		defer bucket.GetPage().Put()
-		// Get all entries
-		entries, err := bucket.Select()
-		bucket.RUnlock()
+	for _, bucketPN := range table.buckets {
+		// get the bucket
+		bucket, err := table.GetBucketByPN(bucketPN, READ_LOCK)
 		if err != nil {
 			return nil, err
 		}
-		entrylist = append(entrylist, entries...)
+
+		// select the entries from the bucket
+		newEntries, err := bucket.Select()
+		bucket.GetPage().Put()
+
+		bucket.RUnlock()
+
+		if err != nil {
+			return nil, err
+		}
+		// concatenate the new entries with the old ones
+		ret = append(ret, newEntries...)
 	}
-	return entrylist, nil
+
+	return ret, nil
 }
 
 // Print out each bucket.

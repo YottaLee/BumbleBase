@@ -52,8 +52,7 @@ func MurmurHasher(key int64, size int64) uint {
 
 // Hasher returns the hash of a key, modded by 2^depth.
 func Hasher(key int64, depth int64) int64 {
-	//return int64(XxHasher(key, powInt(2, depth)))
-	return int64(key % powInt(2, depth))
+	return int64(XxHasher(key, powInt(2, depth)))
 }
 
 // Get the byte-position of the cell with the given index.
