@@ -45,85 +45,86 @@ func (table *BTreeIndex) TableStart() (utils.Cursor, error) {
 // TableEnd returns a cursor pointing to the last entry in the db.
 // If the db is empty, returns a cursor to the new insertion position.
 func (table *BTreeIndex) TableEnd() (utils.Cursor, error) {
-	//panic("function not yet implemented");
+	/* SOLUTION {{{ */
 	cursor := BTreeCursor{table: table, cellnum: 0}
 	// Get the root page.
 	curPage, err := table.pager.GetPage(table.rootPN)
 	if err != nil {
-		return nil, err
+		return &BTreeCursor{}, err
 	}
 	defer curPage.Put()
 	curHeader := pageToNodeHeader(curPage)
+	// Traverse the rightmost children until we reach a leaf node.
 	for curHeader.nodeType != LEAF_NODE {
 		curNode := pageToInternalNode(curPage)
-		rightMostPN := curNode.getPNAt(curNode.numKeys)
-		curPage, err = table.pager.GetPage(rightMostPN)
+		rightmostPN := curNode.getPNAt(curHeader.numKeys)
+		curPage, err = table.pager.GetPage(rightmostPN)
 		if err != nil {
-			return nil, err
+			return &BTreeCursor{}, err
 		}
 		defer curPage.Put()
 		curHeader = pageToNodeHeader(curPage)
 	}
-
-	rightMostNode := pageToLeafNode(curPage)
-	cursor.isEnd = (rightMostNode.numKeys == 0)
-	cursor.curNode = rightMostNode
-	cursor.cellnum = rightMostNode.numKeys - 1
+	// Set the cursor to point to the last entry in the rightmost leaf node.
+	rightmostNode := pageToLeafNode(curPage)
+	cursor.isEnd = false
+	cursor.cellnum = rightmostNode.numKeys - 1
+	cursor.curNode = rightmostNode
 	return &cursor, nil
+	/* SOLUTION }}} */
 }
 
 // TableFind returns a cursor pointing to the given key.
 // If the key is not found, returns a cursor to the new insertion position.
 // Hint: use keyToNodeEntry
 func (table *BTreeIndex) TableFind(key int64) (utils.Cursor, error) {
-	//panic("function not yet implemented")
-	cursor := BTreeCursor{table: table, cellnum: 0}
+	/* SOLUTION {{{ */
+	cursor := BTreeCursor{table: table}
 	// Get the root page.
-	curPage, err := table.pager.GetPage(table.rootPN)
+	rootPage, err := table.pager.GetPage(table.rootPN)
 	if err != nil {
-		return nil, err
+		return &BTreeCursor{}, err
 	}
-	defer curPage.Put()
-	rootNode := pageToNode(curPage)
-	curNode, idx, err := rootNode.keyToNodeEntry(key)
+	defer rootPage.Put()
+	rootNode := pageToNode(rootPage)
+	// Find the leaf node and cellnum that this key belongs to.
+	leaf, cellnum, err := rootNode.keyToNodeEntry(key)
 	if err != nil {
-		cursor.cellnum = idx
-		return &cursor, err
+		return &BTreeCursor{}, err
 	}
-
-	cursor.isEnd = (curNode.numKeys == 0)
-	cursor.cellnum = idx
-	cursor.curNode = curNode
+	// Initialize cursor.
+	cursor.cellnum = cellnum
+	cursor.isEnd = (cellnum == leaf.numKeys)
+	cursor.curNode = leaf
 	return &cursor, nil
+	/* SOLUTION }}} */
 }
 
 // TableFindRange returns a slice of Entries with keys between the startKey and endKey.
 func (table *BTreeIndex) TableFindRange(startKey int64, endKey int64) ([]utils.Entry, error) {
-	//panic("function not yet implemented")
-	entrylist := make([]utils.Entry, 0)
-	// startkey
-	startCursor, err := table.TableFind(startKey)
+	/* SOLUTION {{{ */
+	// Initialize entries array, get starting cursor.
+	entries := make([]utils.Entry, 0)
+	cursor, err := table.TableFind(startKey)
 	if err != nil {
-		return nil, err
+		return entries, err
 	}
-	startEntry, err := startCursor.GetEntry()
+	// Keep advancing the cursor and adding the current entry to the list of
+	// entries until reaching the end key.
+	curEntry, err := cursor.GetEntry()
 	if err != nil {
-		return nil, err
+		return entries, err
 	}
-	// check is reach the end
-	for !startCursor.IsEnd() && startEntry.GetKey() < endKey {
-		entrylist = append(entrylist, startEntry)
-		err = startCursor.StepForward()
+	for endKey > curEntry.GetKey() && !cursor.IsEnd() {
+		entries = append(entries, curEntry)
+		cursor.StepForward()
+		curEntry, err = cursor.GetEntry()
 		if err != nil {
-			return nil, err
+			return entries, err
 		}
-		newEntry, err := startCursor.GetEntry()
-		if err != nil {
-			return nil, err
-		}
-		startEntry = newEntry
 	}
-	return entrylist, nil
+	return entries, nil
+	/* SOLUTION }}} */
 }
 
 // stepForward moves the cursor ahead by one entry.
