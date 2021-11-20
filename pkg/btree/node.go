@@ -41,138 +41,134 @@ type Node interface {
 // search returns the first index where key >= given key.
 // If no key satisfies this condition, returns numKeys.
 func (node *LeafNode) search(key int64) int64 {
-	idx := sort.Search(int(node.numKeys), func(i int) bool {
+	//panic("function not yet implemented");
+	c := func(i int) bool {
 		return node.getKeyAt(int64(i)) >= key
-	})
-	return int64(idx)
+	}
+	i := int64(sort.Search(int(node.numKeys), c))
+	return i
 }
 
 // insert finds the appropriate place in a leaf node to insert a new tuple.
 // if update is true, allow overwriting existing keys. else, error.
 func (node *LeafNode) insert(key int64, value int64, update bool) Split {
-	// unlock the leaf node as the method returns
+	//panic("function not yet implemented");
+	//fmt.Printf("start to insert: key = %d , value = %d \n", key, value)
 	_ = node.unlockParent(false)
 	defer node.unlock()
 
-	// search the place to insert the tuple
-	idx := node.search(key)
-
-	// update will not cause any split, thus should be handled separately
+	index := node.search(key)
+	ressplit := Split{
+		isSplit: false,
+		key:     -1,
+		leftPN:  0,
+		rightPN: 0,
+		err:     nil,
+	}
+	// if update
 	if update {
-		// when updating, no split can possibly happen, hence no need to hold the locks for parent nodes
-		// check if idx is in range and the searched result is equal to key
+		// find the update key
 		_ = node.unlockParent(true)
-		if idx >= node.numKeys || node.getKeyAt(idx) != key {
-			return Split{isSplit: false, err: errors.New("cannot update non-existing tuple")}
+		if index >= node.numKeys || node.getKeyAt(index) != key {
+			// can not find the update key
+			ressplit.err = errors.New("Can not update nonexistent key")
+			return ressplit
 		}
-
-		node.updateValueAt(idx, value)
-		return Split{isSplit: false}
+		node.updateValueAt(index, value)
+		return ressplit
+	} else { // not update
+		//insert key already exists
+		if index < node.numKeys && node.getKeyAt(index) == key {
+			_ = node.unlockParent(true)
+			ressplit.err = errors.New("Can not duplicate insert key")
+			return ressplit
+		} else { // insert the new key
+			for i := node.numKeys - 1; i >= index; i-- {
+				node.updateKeyAt(i+1, node.getKeyAt(i))
+				node.updateValueAt(i+1, node.getValueAt(i))
+			}
+			node.updateKeyAt(index, key)
+			node.updateValueAt(index, value)
+			node.updateNumKeys(node.numKeys + 1)
+		}
 	}
 
-	// HANDLE INSERTION
-	if idx < node.numKeys && node.getKeyAt(idx) == key {
-		// the key already exists, throw an error.
-		// since no further split can happen, unlock all the parent nodes
-		_ = node.unlockParent(true)
-		return Split{isSplit: false, err: errors.New("cannot insert existing key")}
-	}
-
-	// shift the existing tuples if needed
-	for i := node.numKeys - 1; i >= idx; i -= 1 {
-		node.updateValueAt(i+1, node.getValueAt(i))
-		node.updateKeyAt(i+1, node.getKeyAt(i))
-	}
-
-	// insert the tuple and increase the numKeys by 1
-	node.updateKeyAt(idx, key)
-	node.updateValueAt(idx, value)
-	node.updateNumKeys(node.numKeys + 1)
-
-	// split and propagate the split
-	split := node.split()
-
-	if !split.isSplit {
-		// if no split happens, unlock all the parents
-		// Otherwise, the parents should remain locked and let them unlock themselves
+	// need to split
+	ressplit = node.split()
+	if !ressplit.isSplit {
 		_ = node.unlockParent(true)
 	}
-
-	return split
+	return ressplit
 }
 
 // delete removes a given tuple from the leaf node, if the given key exists.
 func (node *LeafNode) delete(key int64) {
-	// make sure the node is unlocked no matter how the method returns
+	//panic("function not yet implemented");
 	_ = node.unlockParent(true)
 	defer node.unlock()
 
 	index := node.search(key)
 	if index >= node.numKeys || node.getKeyAt(index) != key {
-		// no need for deletion
 		return
 	}
-
-	// delete the value by shifting all the tuples on the right side of index to left by one
 	for i := index + 1; i < node.numKeys; i++ {
 		node.updateKeyAt(i-1, node.getKeyAt(i))
 		node.updateValueAt(i-1, node.getValueAt(i))
 	}
-	// decrease the numKeys
 	node.updateNumKeys(node.numKeys - 1)
-	return
 }
 
 // split is a helper function to split a leaf node, then propagate the split upwards.
 func (node *LeafNode) split() Split {
-	if node.numKeys <= ENTRIES_PER_LEAF_NODE {
-		// no need for split
-		return Split{isSplit: false}
+	//panic("function not yet implemented");
+	result := Split{
+		isSplit: true,
+		key:     -1,
+		leftPN:  -1,
+		rightPN: -1,
+		err:     nil,
 	}
-
-	var ret Split
-	// create a new leaf node
-	newRight, err := createLeafNode(node.page.GetPager())
+	if node.numKeys < ENTRIES_PER_LEAF_NODE {
+		result.isSplit = false
+		return result
+	}
+	nextNode, err := createLeafNode(node.page.GetPager())
 	if err != nil {
-		ret.err = err
-		return ret
+		result.isSplit = false
+		result.err = err
+		return result
 	}
-	defer newRight.getPage().Put()
+	defer nextNode.getPage().Put()
 
-	half := node.numKeys / 2
-
-	// copy from median to numKeys - 1 to the newRight
-	for i := half; i < node.numKeys; i++ {
-		newRight.updateKeyAt(i-half, node.getKeyAt(i))
-		newRight.updateValueAt(i-half, node.getValueAt(i))
+	// copy data
+	startIndex := node.numKeys / 2
+	newNumKeys := node.numKeys - startIndex
+	for i := startIndex; i < node.numKeys; i++ {
+		nextNode.updateKeyAt(i-startIndex, node.getKeyAt(i))
+		nextNode.updateValueAt(i-startIndex, node.getValueAt(i))
 	}
-	// update the number of keys in the newNode
-	newRight.updateNumKeys(node.numKeys - half)
-	// set newRight's right sibling to point to oldNode's right sibling
-	newRight.setRightSibling(node.rightSiblingPN)
+	nextNode.updateNumKeys(newNumKeys)
+	// set pointers
+	nextNode.setRightSibling(node.rightSiblingPN)
+	node.updateNumKeys(startIndex)
+	node.setRightSibling(nextNode.getPage().GetPageNum())
 
-	// set the numKeys of current node to half, (which serves as deletion of tuples)
-	node.updateNumKeys(half)
-	// set the new node as the right sibling of the old node
-	node.setRightSibling(newRight.getPage().GetPageNum())
+	result.key = nextNode.getKeyAt(0)
+	result.leftPN = node.getPage().GetPageNum()
+	result.rightPN = nextNode.getPage().GetPageNum()
 
-	ret.isSplit = true
-	ret.key = newRight.getKeyAt(0)
-	ret.leftPN = node.getPage().GetPageNum()
-	ret.rightPN = newRight.getPage().GetPageNum()
-	ret.err = nil
-	return ret
+	return result
 }
 
 // get returns the value associated with a given key from the leaf node.
 func (node *LeafNode) get(key int64) (value int64, found bool) {
-	// make sure node is unlocked as long as the method returns
 	_ = node.unlockParent(true)
 	defer node.unlock()
 
 	index := node.search(key)
 	if index >= node.numKeys || node.getKeyAt(index) != key {
 		// Thank you Mario! But our key is in another castle!
+
 		return 0, false
 	}
 	entry := node.getCell(index)
@@ -217,169 +213,146 @@ func (node *LeafNode) printNode(w io.Writer, firstPrefix string, prefix string) 
 // search returns the first index where key > given key.
 // If no such index exists, it returns numKeys.
 func (node *InternalNode) search(key int64) int64 {
-	idx := sort.Search(int(node.numKeys), func(i int) bool {
+	//panic("function not yet implemented");
+	c := func(i int) bool {
 		return node.getKeyAt(int64(i)) > key
-	})
-	return int64(idx)
+	}
+	i := int64(sort.Search(int(node.numKeys), c))
+	return i
 }
 
 // insert finds the appropriate place in a leaf node to insert a new tuple.
 func (node *InternalNode) insert(key int64, value int64, update bool) Split {
-	// node is already locked upon method enters
-
-	// unlock the parents if current node is never going to split
+	//panic("function not yet implemented");
+	//search index, recursion in child node
 	_ = node.unlockParent(false)
 
-	// find the idx of the key
-	idx := node.search(key)
-	// obtain and lock the child node
-	child, err := node.getChildAt(idx, true)
-
+	i := node.search(key)
+	childnode, err := node.getChildAt(i, true)
 	if err != nil {
-		// the insertion is aborted due to error, unlock all the parents and self
 		_ = node.unlockParent(true)
 		node.unlock()
 		return Split{false, 0, 0, 0, err}
 	}
+	defer childnode.getPage().Put()
 
-	defer child.getPage().Put()
-	// setup parent for child node
-	node.initChild(child)
+	node.initChild(childnode)
 
-	split := child.insert(key, value, update)
-
-	// if no split happens, the child should have already unlocked the current node
-	// so only handle the case when there is a split
-	if split.isSplit {
-		// unlock self
+	split_struct := childnode.insert(key, value, update)
+	// if child node need split
+	if split_struct.isSplit {
 		defer node.unlock()
-
-		// insert the split propagated from the child node
-		split = node.insertSplit(split)
-
-		if !split.isSplit {
+		//insert split into internal node
+		split_struct = node.insertSplit(split_struct)
+		if !split_struct.isSplit {
 			_ = node.unlockParent(true)
 		}
 	}
-
-	return split
+	return split_struct
 }
 
 // insertSplit inserts a split result into an internal node.
 // If this insertion results in another split, the split is cascaded upwards.
 func (node *InternalNode) insertSplit(split Split) Split {
+	//panic("function not yet implemented");
 	if !split.isSplit {
 		// no need for insertion
 		return Split{false, 0, 0, 0, split.err}
 	}
-
-	idx := node.search(split.key)
-
-	// first deal with the special case for interior nodes
+	// find index for split
+	index := node.search(split.key)
+	// shift index behind, and insert new key
 	node.updatePNAt(node.numKeys+1, node.getPNAt(node.numKeys))
-	// shift all the info from idx to numKeys - 1  to right by one
-	for i := node.numKeys - 1; i >= idx; i -= 1 {
+	for i := node.numKeys - 1; i >= index; i-- {
 		node.updateKeyAt(i+1, node.getKeyAt(i))
 		node.updatePNAt(i+1, node.getPNAt(i))
 	}
-
-	// update the info at idx and increase numKeys
-	node.updateKeyAt(idx, split.key)
+	node.updateKeyAt(index, split.key)
 	node.updateNumKeys(node.numKeys + 1)
 
-	// update the pointers to children
-	node.updatePNAt(idx, split.leftPN)
-	node.updatePNAt(idx+1, split.rightPN)
+	node.updatePNAt(index, split.leftPN)
+	node.updatePNAt(index+1, split.rightPN)
 
-	// split the internal node again if needed
+	// if need split again
 	return node.split()
 }
 
 // delete removes a given tuple from the leaf node, if the given key exists.
 func (node *InternalNode) delete(key int64) {
+	//panic("function not yet implemented");
+	//search index, recursion in child node
 	_ = node.unlockParent(true)
-
-	// find the idx of the key
-	idx := node.search(key)
-	// obtain the child node and lock it
-	child, err := node.getChildAt(idx, true)
-
+	i := node.search(key)
+	childnode, err := node.getChildAt(i, true)
 	if err != nil {
 		return
 	}
-
-	defer child.getPage().Put()
-	// setup parent for child node
-	node.initChild(child)
-
-	child.delete(key)
+	defer childnode.getPage().Put()
+	node.initChild(childnode)
+	childnode.delete(key)
 	return
 }
 
 // split is a helper function that splits an internal node, then propagates the split upwards.
 func (node *InternalNode) split() Split {
-	if node.numKeys <= KEYS_PER_INTERNAL_NODE {
+	//panic("function not yet implemented");
+	result := Split{
+		isSplit: true,
+		key:     -1,
+		leftPN:  -1,
+		rightPN: -1,
+		err:     nil,
+	}
+	if node.numKeys < ENTRIES_PER_LEAF_NODE {
 		// No need to split
-		return Split{isSplit: false}
+		result.isSplit = false
+		return result
 	}
-
-	var ret Split
-	// create new internal node
-	newRight, err := createInternalNode(node.page.GetPager())
+	nextNode, err := createInternalNode(node.page.GetPager())
+	defer nextNode.getPage().Put()
 	if err != nil {
-		ret.err = err
-		return ret
+		result.err = err
+		return result
 	}
-	defer newRight.getPage().Put()
-	// set up the key to propagate
-	half := node.numKeys / 2
-	ret.key = node.getKeyAt(half)
+	// key index and new node key size
+	startIndex := node.numKeys / 2
+	newNumKeys := node.numKeys - startIndex - 1
+	result.key = node.getKeyAt(startIndex)
 
-	rightStart := half + 1
-	// copy from median to numKey - 1 to the newRight
-	for i := rightStart; i < node.numKeys; i++ {
-		newRight.updateKeyAt(i-rightStart, node.getKeyAt(i))
-		newRight.updatePNAt(i-rightStart, node.getPNAt(i))
+	//copying data
+	for i := startIndex + 1; i < node.numKeys; i++ {
+		nextNode.updateKeyAt(i-startIndex-1, node.getKeyAt(i))
+		nextNode.updatePNAt(i-startIndex-1, node.getPNAt(i))
 	}
-	// we also need to copy the last pagenum, which is at idx = numKeys
-	newRight.updatePNAt(node.numKeys-rightStart, node.getPNAt(node.numKeys))
+	nextNode.updatePNAt(newNumKeys, node.getPNAt(node.numKeys))
+	nextNode.updateNumKeys(newNumKeys)
 
-	// update the number of tuples in the newNodes
-	newRight.updateNumKeys(node.numKeys - half - 1)
+	// set original node size
+	node.updateNumKeys(startIndex)
 
-	// set the numKeys of current node to half, (which serves as deletion of tuples)
-	node.updateNumKeys(half)
+	result.leftPN = node.getPage().GetPageNum()
+	result.rightPN = nextNode.getPage().GetPageNum()
 
-	ret.isSplit = true
-	ret.leftPN = node.getPage().GetPageNum()
-	ret.rightPN = newRight.getPage().GetPageNum()
-	ret.err = nil
-
-	return ret
+	return result
 }
 
 // get returns the value associated with a given key from the leaf node.
 func (node *InternalNode) get(key int64) (value int64, found bool) {
 	_ = node.unlockParent(true)
-
 	childIdx := node.search(key)
-	// obtain and lock the child node
 	child, err := node.getChildAt(childIdx, true)
-
 	if err != nil {
 		return 0, false
 	}
 	defer child.getPage().Put()
-	// setup parent for child node
 	node.initChild(child)
-
 	return child.get(key)
 }
 
 // keyToNodeEntry is a helper function to create cursors that point to a given index within a leaf node.
 func (node *InternalNode) keyToNodeEntry(key int64) (*LeafNode, int64, error) {
 	index := node.search(key)
-	child, err := node.getChildAt(index, false)
+	child, err := node.getChildAt(index, true)
 	if err != nil {
 		return &LeafNode{}, 0, err
 	}
