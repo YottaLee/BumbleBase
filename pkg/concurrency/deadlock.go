@@ -68,14 +68,15 @@ func (g *Graph) DetectCycle() bool {
 	g.RLock()
 	defer g.RUnlock()
 	//panic("function not yet implemented");
-	for _, e := range g.edges {
-		seenList := make([]*Transaction, 0)
-		res := dfs(g, e.from, seenList)
-		if res {
-			return true
+	/*
+		for _, e := range g.edges {
+			seenList := make([]*Transaction, 0)
+			res := dfs(g, e.from, seenList)
+			if res {
+				return true
+			}
 		}
-	}
-
+	*/
 	return false
 }
 
