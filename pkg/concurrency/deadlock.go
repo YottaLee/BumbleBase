@@ -67,7 +67,16 @@ func (g *Graph) RemoveEdge(from *Transaction, to *Transaction) error {
 func (g *Graph) DetectCycle() bool {
 	g.RLock()
 	defer g.RUnlock()
-	panic("function not yet implemented");
+	//panic("function not yet implemented");
+	for _, e := range g.edges {
+		seenList := make([]*Transaction, 0)
+		res := dfs(g, e.from, seenList)
+		if res {
+			return true
+		}
+	}
+
+	return false
 }
 
 func dfs(g *Graph, from *Transaction, seen []*Transaction) bool {

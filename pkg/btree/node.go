@@ -54,6 +54,8 @@ func (node *LeafNode) search(key int64) int64 {
 func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	//panic("function not yet implemented");
 	//fmt.Printf("start to insert: key = %d , value = %d \n", key, value)
+	_ = node.unlockParent(false)
+	defer node.unlock()
 
 	index := node.search(key)
 	ressplit := Split{
@@ -66,8 +68,10 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	// if update
 	if update {
 		// find the update key
+		_ = node.unlockParent(true)
 		if index < node.numKeys && node.getKeyAt(index) == key {
 			node.updateValueAt(index, value)
+			return ressplit
 		} else {
 			// can not find the update key
 			ressplit.err = errors.New("Can not update nonexistent key")
@@ -76,6 +80,7 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	} else { // not update
 		//insert key already exists
 		if index < node.numKeys && node.getKeyAt(index) == key {
+			_ = node.unlockParent(true)
 			ressplit.err = errors.New("Can not duplicate insert key")
 			return ressplit
 		} else { // insert the new key
@@ -90,12 +95,19 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 	}
 
 	// need to split
-	return node.split()
+	ressplit = node.split()
+	if !ressplit.isSplit {
+		_ = node.unlockParent(true)
+	}
+	return ressplit
 }
 
 // delete removes a given tuple from the leaf node, if the given key exists.
 func (node *LeafNode) delete(key int64) {
 	//panic("function not yet implemented");
+	_ = node.unlockParent(true)
+	defer node.unlock()
+
 	index := node.search(key)
 	if index >= node.numKeys || node.getKeyAt(index) != key {
 		return
@@ -151,6 +163,9 @@ func (node *LeafNode) split() Split {
 
 // get returns the value associated with a given key from the leaf node.
 func (node *LeafNode) get(key int64) (value int64, found bool) {
+	_ = node.unlockParent(true)
+	defer node.unlock()
+
 	index := node.search(key)
 	if index >= node.numKeys || node.getKeyAt(index) != key {
 		// Thank you Mario! But our key is in another castle!
@@ -211,18 +226,28 @@ func (node *InternalNode) search(key int64) int64 {
 func (node *InternalNode) insert(key int64, value int64, update bool) Split {
 	//panic("function not yet implemented");
 	//search index, recursion in child node
+	_ = node.unlockParent(false)
+
 	i := node.search(key)
 	childnode, err := node.getChildAt(i, false)
 	if err != nil {
+		_ = node.unlockParent(true)
+		node.unlock()
 		return Split{false, 0, 0, 0, err}
 	}
 	defer childnode.getPage().Put()
 
+	node.initChild(childnode)
+
 	split_struct := childnode.insert(key, value, update)
 	// if child node need split
 	if split_struct.isSplit {
+		defer node.unlock()
 		//insert split into internal node
 		split_struct = node.insertSplit(split_struct)
+		if !split_struct.isSplit {
+			_ = node.unlockParent(true)
+		}
 	}
 	return split_struct
 }
@@ -257,12 +282,14 @@ func (node *InternalNode) insertSplit(split Split) Split {
 func (node *InternalNode) delete(key int64) {
 	//panic("function not yet implemented");
 	//search index, recursion in child node
+	_ = node.unlockParent(true)
 	i := node.search(key)
 	childnode, err := node.getChildAt(i, false)
 	if err != nil {
 		return
 	}
 	defer childnode.getPage().Put()
+	node.initChild(childnode)
 	childnode.delete(key)
 	return
 }
@@ -312,12 +339,14 @@ func (node *InternalNode) split() Split {
 
 // get returns the value associated with a given key from the leaf node.
 func (node *InternalNode) get(key int64) (value int64, found bool) {
+	_ = node.unlockParent(true)
 	childIdx := node.search(key)
 	child, err := node.getChildAt(childIdx, false)
 	if err != nil {
 		return 0, false
 	}
 	defer child.getPage().Put()
+	node.initChild(child)
 	return child.get(key)
 }
 

@@ -90,12 +90,95 @@ func (tm *TransactionManager) Begin(clientId uuid.UUID) error {
 
 // Locks the given resource. Will return an error if deadlock is created.
 func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceKey int64, lType LockType) error {
-	panic("function not yet implemented");
+	//panic("function not yet implemented");
+	tm.tmMtx.RLock()
+	transaction, found := tm.GetTransaction(clientId)
+	tm.tmMtx.RUnlock()
+
+	if !found {
+		return errors.New("fail to find transaction")
+	}
+
+	tableName := table.GetName()
+	r := Resource{resourceKey: resourceKey, tableName: tableName}
+
+	transaction.RLock()
+	curType, found := transaction.resources[r]
+	transaction.RUnlock()
+
+	if found {
+		if curType >= lType {
+			return nil
+		} else {
+			return errors.New("illegal lock type")
+		}
+	}
+
+	conflictTransactions := tm.discoverTransactions(r, lType)
+	for _, t := range conflictTransactions {
+		if transaction == t {
+			continue
+		}
+
+		tm.pGraph.AddEdge(transaction, t)
+		defer tm.pGraph.RemoveEdge(transaction, t)
+	}
+
+	containCycle := tm.pGraph.DetectCycle()
+
+	if containCycle {
+		return errors.New("contains cycle")
+	}
+
+	err := tm.lm.Lock(r, lType)
+	if err != nil {
+		return err
+	}
+	transaction.WLock()
+	transaction.resources[r] = lType
+	transaction.WUnlock()
+
+	return nil
 }
 
 // Unlocks the given resource.
 func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourceKey int64, lType LockType) error {
-	panic("function not yet implemented");
+	//panic("function not yet implemented");
+	tm.tmMtx.RLock()
+	transaction, found := tm.GetTransaction(clientId)
+	tm.tmMtx.RUnlock()
+
+	if !found {
+		return errors.New("fail to find transaction")
+	}
+
+	tableName := table.GetName()
+	resource := Resource{resourceKey: resourceKey, tableName: tableName}
+
+	transaction.WLock()
+	defer transaction.WUnlock()
+
+	removed := false
+	for sresource, stype := range transaction.resources {
+
+		if stype != lType {
+			return errors.New("lock type mismatch")
+		}
+
+		if sresource == resource {
+			delete(transaction.resources, resource)
+			removed = true
+			break
+		}
+	}
+
+	if !removed {
+		return errors.New("resource not found")
+	}
+
+	err := tm.lm.Unlock(resource, lType)
+	return err
+
 }
 
 // Commits the given transaction and removes it from the running transactions list.
