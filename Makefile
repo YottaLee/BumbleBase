@@ -1,4 +1,4 @@
-mske .PHONY: all build clean test bench cover cover-out docker_build docker_run
+.PHONY: all build clean test bench cover cover-out docker_build docker_run
 
 all: build
 
