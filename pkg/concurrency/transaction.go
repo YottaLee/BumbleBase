@@ -8,44 +8,44 @@ import (
 	uuid "github.com/google/uuid"
 )
 
-// Each client can have a transaction running. Each transaction has a list of locked resources.
+// Transaction Each client can have a transaction running. Each transaction has a list of locked resources.
 type Transaction struct {
 	clientId  uuid.UUID
 	resources map[Resource]LockType
 	lock      sync.RWMutex
 }
 
-// Grab a write lock on the tx
+// WLock Grab a write lock on the tx
 func (t *Transaction) WLock() {
 	t.lock.Lock()
 }
 
-// Release the write lock on the tx
+// WUnlock Release the write lock on the tx
 func (t *Transaction) WUnlock() {
 	t.lock.Unlock()
 }
 
-// Grab a read lock on the tx
+// RLock Grab a read lock on the tx
 func (t *Transaction) RLock() {
 	t.lock.RLock()
 }
 
-// Release the write lock on the tx
+// RUnlock Release the read lock on the tx
 func (t *Transaction) RUnlock() {
 	t.lock.RUnlock()
 }
 
-// Get the transaction id.
+// GetClientID Get the transaction id.
 func (t *Transaction) GetClientID() uuid.UUID {
 	return t.clientId
 }
 
-// Get the transaction's resources.
+// GetResources Get the transaction's resources.
 func (t *Transaction) GetResources() map[Resource]LockType {
 	return t.resources
 }
 
-// Transaction Manager manages all of the transactions on a server.
+// TransactionManager manages all of the transactions on a server.
 type TransactionManager struct {
 	lm           *LockManager
 	tmMtx        sync.RWMutex
@@ -53,22 +53,22 @@ type TransactionManager struct {
 	transactions map[uuid.UUID]*Transaction
 }
 
-// Get a pointer to a new transaction manager.
+// NewTransactionManager Get a pointer to a new transaction manager.
 func NewTransactionManager(lm *LockManager) *TransactionManager {
 	return &TransactionManager{lm: lm, pGraph: NewGraph(), transactions: make(map[uuid.UUID]*Transaction)}
 }
 
-// Get the transactions.
+// GetLockManager Get the transactions.
 func (tm *TransactionManager) GetLockManager() *LockManager {
 	return tm.lm
 }
 
-// Get the transactions.
+// GetTransactions Get the transactions.
 func (tm *TransactionManager) GetTransactions() map[uuid.UUID]*Transaction {
 	return tm.transactions
 }
 
-// Get a particular transaction.
+// GetTransaction Get a particular transaction.
 func (tm *TransactionManager) GetTransaction(clientId uuid.UUID) (*Transaction, bool) {
 	tm.tmMtx.RLock()
 	defer tm.tmMtx.RUnlock()
@@ -88,17 +88,17 @@ func (tm *TransactionManager) Begin(clientId uuid.UUID) error {
 	return nil
 }
 
-// Locks the given resource. Will return an error if deadlock is created.
+// Lock the given resource. Will return an error if deadlock is created.
 func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceKey int64, lType LockType) error {
-	//panic("function not yet implemented");
 	tm.tmMtx.RLock()
 	transaction, found := tm.GetTransaction(clientId)
 	tm.tmMtx.RUnlock()
 
 	if !found {
-		return errors.New("fail to find transaction")
+		return errors.New("transaction not found")
 	}
 
+	// get the resource to lock
 	tableName := table.GetName()
 	r := Resource{resourceKey: resourceKey, tableName: tableName}
 
@@ -107,14 +107,20 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 	transaction.RUnlock()
 
 	if found {
+		// The transaction already holds a same or higher level lock
+		// ignore the request and return
 		if curType >= lType {
 			return nil
 		} else {
 			return errors.New("illegal lock type")
 		}
 	}
+	// An upgrade on the current lock or a new lock is needed.
 
+	// 1. detect cycle
 	conflictTransactions := tm.discoverTransactions(r, lType)
+
+	// add edges to the precedence graph
 	for _, t := range conflictTransactions {
 		if transaction == t {
 			continue
@@ -124,16 +130,22 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 		defer tm.pGraph.RemoveEdge(transaction, t)
 	}
 
+	// detect cycle in the precedence graph
 	containCycle := tm.pGraph.DetectCycle()
 
 	if containCycle {
 		return errors.New("contains cycle")
 	}
 
+	// 2. No cycle in the precedence graph, we can now lock the resource with lType
+
+	// 2.1 we can lock the resource via the LockManager.
 	err := tm.lm.Lock(r, lType)
 	if err != nil {
 		return err
 	}
+
+	// 2.2 Finally, add the resource to the transaction's resource map
 	transaction.WLock()
 	transaction.resources[r] = lType
 	transaction.WUnlock()
@@ -141,17 +153,17 @@ func (tm *TransactionManager) Lock(clientId uuid.UUID, table db.Index, resourceK
 	return nil
 }
 
-// Unlocks the given resource.
+// Unlock the given resource.
 func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourceKey int64, lType LockType) error {
-	//panic("function not yet implemented");
 	tm.tmMtx.RLock()
 	transaction, found := tm.GetTransaction(clientId)
 	tm.tmMtx.RUnlock()
 
 	if !found {
-		return errors.New("fail to find transaction")
+		return errors.New("transaction not found")
 	}
 
+	// get the resource to lock
 	tableName := table.GetName()
 	resource := Resource{resourceKey: resourceKey, tableName: tableName}
 
@@ -159,13 +171,13 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 	defer transaction.WUnlock()
 
 	removed := false
-	for sresource, stype := range transaction.resources {
-
-		if stype != lType {
+	for storedResource, storedType := range transaction.resources {
+		// if type mismatch, throw an error
+		if storedType != lType {
 			return errors.New("lock type mismatch")
 		}
 
-		if sresource == resource {
+		if storedResource == resource {
 			delete(transaction.resources, resource)
 			removed = true
 			break
@@ -178,10 +190,9 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 
 	err := tm.lm.Unlock(resource, lType)
 	return err
-
 }
 
-// Commits the given transaction and removes it from the running transactions list.
+// Commit the given transaction and removes it from the running transactions list.
 func (tm *TransactionManager) Commit(clientId uuid.UUID) error {
 	tm.tmMtx.Lock()
 	defer tm.tmMtx.Unlock()
