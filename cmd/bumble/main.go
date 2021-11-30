@@ -15,9 +15,8 @@ import (
 	list "github.com/brown-csci1270/db/pkg/list"
 	pager "github.com/brown-csci1270/db/pkg/pager"
 	query "github.com/brown-csci1270/db/pkg/query"
+	recovery "github.com/brown-csci1270/db/pkg/recovery"
 	repl "github.com/brown-csci1270/db/pkg/repl"
-
-	// recovery "github.com/brown-csci1270/db/pkg/recovery"
 
 	uuid "github.com/google/uuid"
 )
@@ -25,7 +24,6 @@ import (
 // Default port 8335 (BEES).
 const DEFAULT_PORT int = 8335
 
-// [BTREE]
 // Listens for SIGINT or SIGTERM and calls table.CloseDB().
 func setupCloseHandler(database *db.Database) {
 	c := make(chan os.Signal)
@@ -38,7 +36,6 @@ func setupCloseHandler(database *db.Database) {
 	}()
 }
 
-// [CONCURRENCY]
 // Start listening for connections at port `port`.
 func startServer(repl *repl.REPL, tm *concurrency.TransactionManager, prompt string, port int) {
 	// Handle a connection by running the repl on it.
@@ -72,47 +69,36 @@ func startServer(repl *repl.REPL, tm *concurrency.TransactionManager, prompt str
 // Start the database.
 func main() {
 	// Set up flags.
+	var dbFlag = flag.String("db", "data/", "DB folder")
+	var portFlag = flag.Int("p", DEFAULT_PORT, "port number")
 	var promptFlag = flag.Bool("c", true, "use prompt?")
 	var projectFlag = flag.String("project", "", "choose project: [go,pager,db,query,concurrency,recovery] (required)")
-
-	// [BTREE]
-	var dbFlag = flag.String("db", "data/", "DB folder")
-
-	// [CONCURRENCY]
-	var portFlag = flag.Int("p", DEFAULT_PORT, "port number")
-
 	flag.Parse()
-
-	// [BTREE]
-	// Open the db.
-	database, err := db.Open(*dbFlag)
+	// Open the db; if recovery, prime the database.
+	var database *db.Database
+	var err error
+	if *projectFlag == "recovery" {
+		database, err = recovery.Prime(*dbFlag)
+	} else {
+		database, err = db.Open(*dbFlag)
+	}
 	if err != nil {
 		panic(err)
 	}
-
-	// [RECOVERY]
-	// // Set up the log file.
-	// err = database.CreateLogFile()
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// [BTREE]
+	// Set up the log file.
+	err = database.CreateLogFile(config.LogFileName)
+	if err != nil {
+		panic(err)
+	}
 	// Setup close conditions.
 	defer database.Close()
 	setupCloseHandler(database)
-
 	// Set up REPL resources.
 	prompt := config.GetPrompt(*promptFlag)
 	repls := make([]*repl.REPL, 0)
-
-	// [CONCURRENCY]
 	var tm *concurrency.TransactionManager
+	var rm *recovery.RecoveryManager
 	server := false
-
-	// [RECOVERY]
-	// var rm *recovery.RecoveryManager
-
 	// Get the right REPLs.
 	switch *projectFlag {
 	case "go":
@@ -125,54 +111,46 @@ func main() {
 			return
 		}
 		repls = append(repls, pRepl)
-
-	// [BTREE]
 	case "db":
-		server = false
 		repls = append(repls, db.DatabaseRepl(database))
-
-	// [QUERY]
 	case "query":
-		server = false
 		repls = append(repls, db.DatabaseRepl(database))
 		repls = append(repls, query.QueryRepl(database))
-
-	// [CONCURRENCY]
 	case "concurrency":
 		server = true
 		lm := concurrency.NewLockManager()
 		tm = concurrency.NewTransactionManager(lm)
 		repls = append(repls, concurrency.TransactionREPL(database, tm))
-
-	// [RECOVERY]
-	// case "recovery":
-	// 	server = true
-	// 	lm := concurrency.NewLockManager()
-	// 	tm = concurrency.NewTransactionManager(lm)
-	// 	rm, err = recovery.NewRecoveryManager(database, tm)
-	// 	if err != nil {
-	// 		fmt.Println(err)
-	// 		return
-	// 	}
-	// 	repls = append(repls, recovery.RecoveryREPL(database, tm, rm))
-	// 	// Recover in this case!
-	// 	rm.Recover()
-
+	case "recovery":
+		server = true
+		lm := concurrency.NewLockManager()
+		tm = concurrency.NewTransactionManager(lm)
+		rm, err = recovery.NewRecoveryManager(database, tm, config.LogFileName)
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		repls = append(repls, recovery.RecoveryREPL(database, tm, rm))
+		// Recover in this case!
+		err = rm.Recover()
+		if err != nil {
+			fmt.Println(err)
+			fmt.Println("Potentially corrupted write-ahead log --- unable to recover")
+			fmt.Println("Consider clearing/fixing the log, or dropping down to a lower-level repl, e.g. the Concurrency repl")
+			return
+		}
 	default:
 		fmt.Println("must specify -project [go,pager,db,query,concurrency,recovery]")
 		return
 	}
-
 	// Combine the REPLs.
 	r, err := repl.CombineRepls(repls)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-
 	// Start server if server (concurrency or recovery), else run REPL here.
 	if server {
-		// 	[CONCURRENCY]
 		startServer(r, tm, prompt, *portFlag)
 	} else {
 		r.Run(nil, uuid.New(), prompt)
