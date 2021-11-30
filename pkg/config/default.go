@@ -11,7 +11,7 @@ const Prompt = DBName + "> "
 const NumPages = 32
 
 // Name of log file.
-const LogFileName = "db.log"
+const LogFileName = "./data/db.log"
 
 // Return prompt if requested, else "".
 func GetPrompt(flag bool) string {
