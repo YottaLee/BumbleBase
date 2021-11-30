@@ -95,3 +95,13 @@ func (page *Page) RLock() {
 func (page *Page) RUnlock() {
 	page.rwlock.RUnlock()
 }
+
+// [RECOVERY] Grab the update lock.
+func (page *Page) LockUpdates() {
+	page.updateLock.Lock()
+}
+
+// [RECOVERY] Release the update lock.
+func (page *Page) UnlockUpdates() {
+	page.updateLock.Unlock()
+}

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	btree "github.com/brown-csci1270/db/pkg/btree"
-	config "github.com/brown-csci1270/db/pkg/config"
 	hash "github.com/brown-csci1270/db/pkg/hash"
 	pager "github.com/brown-csci1270/db/pkg/pager"
 	utils "github.com/brown-csci1270/db/pkg/utils"
@@ -74,12 +73,11 @@ func (db *Database) Close() (err error) {
 }
 
 // Create a log file for the database.
-func (db *Database) CreateLogFile() error {
-	path := filepath.Join(db.basepath, config.LogFileName)
-	if _, err := os.Stat(path); err == nil {
+func (db *Database) CreateLogFile(filename string) error {
+	if _, err := os.Stat(filename); err == nil {
 		return nil
 	}
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
+	file, err := os.OpenFile(filename, os.O_RDWR|os.O_CREATE, 0666)
 	if err != nil {
 		return err
 	}

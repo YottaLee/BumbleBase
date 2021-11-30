@@ -231,3 +231,19 @@ func (pager *Pager) FlushAllPages() {
 	pager.unpinnedList.Map(writer)
 	/* SOLUTION }}} */
 }
+
+// [RECOVERY] Block all updates.
+func (pager *Pager) LockAllUpdates() {
+	pager.ptMtx.Lock()
+	for _, page := range pager.pageTable {
+		page.GetKey().(*Page).LockUpdates()
+	}
+}
+
+// [RECOVERY] Enable updates.
+func (pager *Pager) UnlockAllUpdates() {
+	for _, page := range pager.pageTable {
+		page.GetKey().(*Page).UnlockUpdates()
+	}
+	pager.ptMtx.Unlock()
+}
