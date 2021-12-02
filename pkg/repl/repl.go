@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"os"
 	"strings"
@@ -18,94 +19,87 @@ type REPL struct {
 	help     map[string]string
 }
 
-// REPL Config struct.
+// REPLConfig REPL Config struct.
 type REPLConfig struct {
 	writer   io.Writer
 	clientId uuid.UUID
 }
 
-const (
-	CmdHelp         = ".help"
-	CmdListContains = "list_contains"
-	CmdListPrint    = "list_print"
-	CmdListPushHead = "list_push_head"
-	CmdListPushTail = "list_push_tail"
-	CmdListRemove   = "list_remove"
-)
-
-// Get writer.
+// GetWriter Get writer.
 func (replConfig *REPLConfig) GetWriter() io.Writer {
 	return replConfig.writer
 }
 
-// Get address.
+// GetAddr Get address.
 func (replConfig *REPLConfig) GetAddr() uuid.UUID {
 	return replConfig.clientId
 }
 
-// Construct an empty REPL.
+// NewRepl Construct an empty REPL.
 func NewRepl() *REPL {
-	//panic("function not yet implemented new")
-	r := &REPL{}
+	r := new(REPL)
 	r.help = make(map[string]string)
 	r.commands = make(map[string]func(string, *REPLConfig) error)
+
 	return r
 }
 
-// Combines a slice of REPLs.
+// CombineRepls Combines a slice of REPLs.
 func CombineRepls(repls []*REPL) (*REPL, error) {
-	//panic("function not yet implemented combine")
-	r := NewRepl()
 	if repls == nil || len(repls) == 0 {
-		return r, nil
+		return NewRepl(), nil
 	}
-	if len(repls) == 1 {
-		r.commands = repls[0].commands
-		r.help = repls[0].help
-		return r, nil
-	}
-	for _, repl := range repls {
-		if repl == nil {
-			continue
-		}
-		for t, v := range repl.commands {
-			_, ok := r.commands[t]
-			if ok {
-				return nil, errors.New("repls overlapping")
-			} else {
-				r.commands[t] = v
-				r.help[t] = repl.help[t]
+
+	combinedRepl := NewRepl()
+
+	var i int
+	for i = 0; i < len(repls); i++ {
+		for trigger := range repls[i].help {
+			_, present := combinedRepl.help[trigger]
+			if present {
+				return nil, errors.New("overlapping triggers detected")
 			}
+
+			combinedRepl.help[trigger] = repls[i].help[trigger]
+			combinedRepl.commands[trigger] = repls[i].commands[trigger]
 		}
 	}
-	return r, nil
+	return combinedRepl, nil
 }
 
-// Get commands.
+// GetCommands Get commands.
 func (r *REPL) GetCommands() map[string]func(string, *REPLConfig) error {
 	return r.commands
 }
 
-// Get help.
+// GetHelp Get help.
 func (r *REPL) GetHelp() map[string]string {
 	return r.help
 }
 
-// Add a command, along with its help string, to the set of commands.
+// AddCommand Add a command, along with its help string, to the set of commands.
 func (r *REPL) AddCommand(trigger string, action func(string, *REPLConfig) error, help string) {
-	//panic("function not yet implemented add")
-	r.help[trigger] = help
+	if r == nil {
+		return
+	}
+	if strings.HasPrefix(trigger, ".") {
+		fmt.Printf("Attempts to overwrite meta command is illegal!")
+		return
+	}
 	r.commands[trigger] = action
+	r.help[trigger] = help
 }
 
-// Return all REPL usage information as a string.
+// HelpString Return all REPL usage information as a string.
 func (r *REPL) HelpString() string {
-	//panic("function not yet implemented help")
-	s := ""
-	for name, desc := range r.help {
-		s += (name + ": \n \t" + desc + "\n")
+	if r == nil {
+		return ""
 	}
-	return s
+	usage := ""
+	for tri := range r.help {
+		usage += tri + ": " + r.help[tri] + "\n"
+	}
+	return usage
 }
 
 // Run the REPL.
@@ -120,45 +114,34 @@ func (r *REPL) Run(c net.Conn, clientId uuid.UUID, prompt string) {
 		reader = c
 		writer = c
 	}
-	scanner := bufio.NewScanner((reader))
+	scanner := bufio.NewScanner(reader)
 	replConfig := &REPLConfig{writer: writer, clientId: clientId}
-	
+
+	// print the prompt
+	fmt.Print(prompt)
 	// Begin the repl loop!
-	//panic("function not yet implemented run")
-	
-	for {
-		io.WriteString(writer, prompt)
-		scanned := scanner.Scan()
-		if !scanned {
-			return
+	for scanner.Scan() {
+		// read from the scanner
+		command := cleanInput(scanner.Text())
+		inputCommand := strings.Split(command, " ")
+
+		if inputCommand[0] == ".help" {
+			r.metaHelp()
+		} else {
+			action, present := r.commands[inputCommand[0]]
+			if present {
+				err := action(command, replConfig)
+				if err != nil {
+					log.Print(err)
+				}
+			}
 		}
-		line := cleanInput(scanner.Text())
-		var err error
-		tokens := strings.Split(line, " ")
-		if tokens[0] == ".help" {
-			io.WriteString(writer, r.HelpString())
-			continue
-		}
-		_, ok := r.commands[tokens[0]]
-		if !ok {
-			io.WriteString(writer, "wrong command \n")
-			continue
-		}
-		r.commands[tokens[0]](line, replConfig)
-		
-		if err != nil {
-			io.WriteString(writer, ("error: " + err.Error() + "\n"))
-		}
+		// print the prompt
+		fmt.Print(prompt)
 	}
-	
 }
 
-// cleanInput preprocesses input to the db repl.
-func cleanInput(text string) string {
-	//panic("function not yet implemented clean")
-	return text
-}
-
+// RunChan Run the REPL.
 func (r *REPL) RunChan(c chan string, clientId uuid.UUID, prompt string) {
 	// Get reader and writer; stdin and stdout if no conn.
 	writer := os.Stdout
@@ -195,4 +178,26 @@ func (r *REPL) RunChan(c chan string, clientId uuid.UUID, prompt string) {
 	}
 	// Print an additional line if we encountered an EOF character.
 	io.WriteString(writer, "\n")
+}
+
+func (r *REPL) metaHelp() {
+	for trigger := range r.commands {
+		fmt.Println(trigger + ": " + r.help[trigger])
+	}
+
+	return
+}
+
+// cleanInput preprocesses input to the db repl.
+func cleanInput(text string) string {
+	text = strings.Trim(text, " ")
+	splitText := strings.Split(text, " ")
+
+	var cleanedText []string
+	for _, section := range splitText {
+		if len(section) > 0 {
+			cleanedText = append(cleanedText, section)
+		}
+	}
+	return strings.Join(cleanedText, " ")
 }
