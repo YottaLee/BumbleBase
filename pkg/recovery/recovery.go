@@ -73,9 +73,9 @@ func (rm *RecoveryManager) Edit(clientId uuid.UUID, table db.Index, action Actio
 		id:        clientId,
 		tablename: tableName,
 		action:    action,
-		key:       int64(key),
-		oldval:    int64(oldval),
-		newval:    int64(newval),
+		key:       key,
+		oldval:    oldval,
+		newval:    newval,
 	}
 	logs, ok := rm.txStack[clientId]
 	if ok {
@@ -116,17 +116,19 @@ func (rm *RecoveryManager) Checkpoint() {
 	rm.mtx.Lock()
 	defer rm.mtx.Unlock()
 	//panic("function not yet implemented")
+
+	uuids := make([]uuid.UUID, 0)
+	for clientId, _ := range rm.txStack {
+		uuids = append(uuids, clientId)
+	}
+	log := checkpointLog{ids: uuids}
+
 	tbs := rm.d.GetTables()
 	for _, tb := range tbs {
 		tb.GetPager().LockAllUpdates()
 		tb.GetPager().FlushAllPages()
 		tb.GetPager().UnlockAllUpdates()
 	}
-	uuids := make([]uuid.UUID, 0)
-	for clientId, _ := range rm.txStack {
-		uuids = append(uuids, clientId)
-	}
-	log := checkpointLog{ids: uuids}
 
 	rm.writeToBuffer(log.toString())
 
