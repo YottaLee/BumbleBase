@@ -177,7 +177,7 @@ func (tm *TransactionManager) Unlock(clientId uuid.UUID, table db.Index, resourc
 			return errors.New("lock type mismatch")
 		}
 
- 		if storedResource == resource {
+		if storedResource == resource {
 			delete(transaction.resources, resource)
 			removed = true
 			break

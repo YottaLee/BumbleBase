@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// LockType Indicates whether a lock is a reader or a writer lock.
+// Indicates whether a lock is a reader or a writer lock.
 type LockType int
 
 const (
@@ -13,29 +13,29 @@ const (
 	W_LOCK LockType = 1
 )
 
-// Resource A resource.
+// A resource.
 type Resource struct {
 	tableName   string
 	resourceKey int64
 }
 
-// GetTableName Get resource table name.
+// Get resource table name.
 func (r *Resource) GetTableName() string {
 	return r.tableName
 }
 
-// GetResourceKey Get resource key.
+// Get resource key.
 func (r *Resource) GetResourceKey() int64 {
 	return r.resourceKey
 }
 
-// LockManager Lock manager handles transaction-level locks over database resources.
+// Lock manager handles transaction-level locks over database resources.
 type LockManager struct {
 	lmMtx sync.Mutex
 	locks map[Resource]*sync.RWMutex
 }
 
-// NewLockManager Construct a new lock manager.
+// Construct a new lock manager.
 func NewLockManager() *LockManager {
 	return &LockManager{
 		locks: make(map[Resource]*sync.RWMutex),

@@ -86,8 +86,8 @@ func (bucket *HashBucket) Delete(key int64) error {
 
 	// if found, shift all the key from deletionIdx + 1 to numKeys - 1 to left by one
 	for i := deletionIdx + 1; i < bucket.numKeys; i++ {
-		bucket.updateKeyAt(i - 1, bucket.getKeyAt(i))
-		bucket.updateValueAt(i - 1, bucket.getValueAt(i));
+		bucket.updateKeyAt(i-1, bucket.getKeyAt(i))
+		bucket.updateValueAt(i-1, bucket.getValueAt(i))
 	}
 
 	// decrease numKeys by one

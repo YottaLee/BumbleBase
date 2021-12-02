@@ -15,8 +15,8 @@ import (
 
 // REPL struct.
 type REPL struct {
-	commands 		map[string]func(string, *REPLConfig) error
-	help     		map[string]string
+	commands map[string]func(string, *REPLConfig) error
+	help     map[string]string
 }
 
 // REPLConfig REPL Config struct.

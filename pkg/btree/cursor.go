@@ -117,7 +117,7 @@ func (table *BTreeIndex) TableFindRange(startKey int64, endKey int64) ([]utils.E
 		if err != nil {
 			return nil, err
 		}
-		
+
 		newEntry, err := cursor.GetEntry()
 		if err != nil {
 			return nil, err

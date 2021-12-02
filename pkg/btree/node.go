@@ -80,8 +80,8 @@ func (node *LeafNode) insert(key int64, value int64, update bool) Split {
 
 	// shift the existing tuples if needed
 	for i := node.numKeys - 1; i >= idx; i -= 1 {
-		node.updateValueAt(i + 1, node.getValueAt(i))
-		node.updateKeyAt(i + 1, node.getKeyAt(i))
+		node.updateValueAt(i+1, node.getValueAt(i))
+		node.updateKeyAt(i+1, node.getKeyAt(i))
 	}
 
 	// insert the tuple and increase the numKeys by 1
@@ -115,8 +115,8 @@ func (node *LeafNode) delete(key int64) {
 
 	// delete the value by shifting all the tuples on the right side of index to left by one
 	for i := index + 1; i < node.numKeys; i++ {
-		node.updateKeyAt(i - 1, node.getKeyAt(i))
-		node.updateValueAt(i - 1, node.getValueAt(i))
+		node.updateKeyAt(i-1, node.getKeyAt(i))
+		node.updateValueAt(i-1, node.getValueAt(i))
 	}
 	// decrease the numKeys
 	node.updateNumKeys(node.numKeys - 1)
@@ -143,8 +143,8 @@ func (node *LeafNode) split() Split {
 
 	// copy from median to numKeys - 1 to the newRight
 	for i := half; i < node.numKeys; i++ {
-		newRight.updateKeyAt(i - half, node.getKeyAt(i))
-		newRight.updateValueAt(i - half, node.getValueAt(i))
+		newRight.updateKeyAt(i-half, node.getKeyAt(i))
+		newRight.updateValueAt(i-half, node.getValueAt(i))
 	}
 	// update the number of keys in the newNode
 	newRight.updateNumKeys(node.numKeys - half)
@@ -276,11 +276,11 @@ func (node *InternalNode) insertSplit(split Split) Split {
 	idx := node.search(split.key)
 
 	// first deal with the special case for interior nodes
-	node.updatePNAt(node.numKeys + 1, node.getPNAt(node.numKeys))
+	node.updatePNAt(node.numKeys+1, node.getPNAt(node.numKeys))
 	// shift all the info from idx to numKeys - 1  to right by one
 	for i := node.numKeys - 1; i >= idx; i -= 1 {
-		node.updateKeyAt(i + 1, node.getKeyAt(i))
-		node.updatePNAt(i + 1, node.getPNAt(i))
+		node.updateKeyAt(i+1, node.getKeyAt(i))
+		node.updatePNAt(i+1, node.getPNAt(i))
 	}
 
 	// update the info at idx and increase numKeys
@@ -289,7 +289,7 @@ func (node *InternalNode) insertSplit(split Split) Split {
 
 	// update the pointers to children
 	node.updatePNAt(idx, split.leftPN)
-	node.updatePNAt(idx + 1, split.rightPN)
+	node.updatePNAt(idx+1, split.rightPN)
 
 	// split the internal node again if needed
 	return node.split()
@@ -338,11 +338,11 @@ func (node *InternalNode) split() Split {
 	rightStart := half + 1
 	// copy from median to numKey - 1 to the newRight
 	for i := rightStart; i < node.numKeys; i++ {
-		newRight.updateKeyAt(i - rightStart, node.getKeyAt(i))
-		newRight.updatePNAt(i - rightStart, node.getPNAt(i))
+		newRight.updateKeyAt(i-rightStart, node.getKeyAt(i))
+		newRight.updatePNAt(i-rightStart, node.getPNAt(i))
 	}
 	// we also need to copy the last pagenum, which is at idx = numKeys
-	newRight.updatePNAt(node.numKeys - rightStart, node.getPNAt(node.numKeys))
+	newRight.updatePNAt(node.numKeys-rightStart, node.getPNAt(node.numKeys))
 
 	// update the number of tuples in the newNodes
 	newRight.updateNumKeys(node.numKeys - half - 1)

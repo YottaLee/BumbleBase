@@ -3,8 +3,9 @@ package list
 import (
 	"errors"
 	"fmt"
-	repl "github.com/brown-csci1270/db/pkg/repl"
 	"strings"
+
+	repl "github.com/brown-csci1270/db/pkg/repl"
 )
 
 // List struct.
@@ -125,7 +126,7 @@ func (list *List) printList(command string, config *repl.REPLConfig) error {
 }
 
 func (list *List) pushHead(command string, config *repl.REPLConfig) error {
-	args := strings.Split(command," ")
+	args := strings.Split(command, " ")
 	if len(args) < 1 {
 		return errors.New("invalid command")
 	}
@@ -139,7 +140,7 @@ func (list *List) pushHead(command string, config *repl.REPLConfig) error {
 }
 
 func (list *List) pushTail(command string, config *repl.REPLConfig) error {
-	args := strings.Split(command," ")
+	args := strings.Split(command, " ")
 	if len(args) < 1 {
 		return errors.New("invalid command")
 	}
@@ -153,7 +154,7 @@ func (list *List) pushTail(command string, config *repl.REPLConfig) error {
 }
 
 func (list *List) remove(command string, config *repl.REPLConfig) error {
-	args := strings.Split(command," ")
+	args := strings.Split(command, " ")
 	if len(args) < 1 {
 		return errors.New("invalid command")
 	}
@@ -182,7 +183,7 @@ func (list *List) remove(command string, config *repl.REPLConfig) error {
 }
 
 func (list *List) contains(command string, config *repl.REPLConfig) error {
-	args := strings.Split(command," ")
+	args := strings.Split(command, " ")
 	if len(args) < 1 {
 		return errors.New("invalid command")
 	}
@@ -208,7 +209,6 @@ func (list *List) contains(command string, config *repl.REPLConfig) error {
 	}
 	return nil
 }
-
 
 // Link struct.
 type Link struct {
