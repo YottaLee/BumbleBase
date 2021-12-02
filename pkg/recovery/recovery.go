@@ -214,17 +214,21 @@ func (rm *RecoveryManager) Undo(log Log) error {
 func (rm *RecoveryManager) Recover() error {
 	//panic("function not yet implemented")
 	logs, checkpointPos, err := rm.readLogs()
-
 	if err != nil {
 		return err
 	}
+
 	length := len(logs)
 	if checkpointPos >= length {
 		return nil
 	}
+
+	// iterate from the checkpoint to redo all the log
+	// while examining which transaction is still active at crash
 	undoSet := make(map[uuid.UUID]bool)
 	switch checkPoint := logs[checkpointPos].(type) {
 	case *checkpointLog:
+		// add all current active transactions
 		for _, id := range checkPoint.ids {
 			undoSet[id] = true
 			err = rm.tm.Begin(id)
@@ -233,9 +237,9 @@ func (rm *RecoveryManager) Recover() error {
 			}
 		}
 	default:
-
 	}
 
+	// keep track of which transaction has ended
 	for i := checkpointPos; i < length; i += 1 {
 		switch l := logs[i].(type) {
 		case *startLog:
@@ -256,6 +260,7 @@ func (rm *RecoveryManager) Recover() error {
 				return err
 			}
 		case *commitLog:
+			// transaction has finished, no need to undo
 			delete(undoSet, l.id)
 			err = rm.tm.Commit(l.id)
 			if err != nil {
@@ -268,8 +273,10 @@ func (rm *RecoveryManager) Recover() error {
 
 	for i := length - 1; i >= 0; i -= 1 {
 		if len(undoSet) == 0 {
+			// no more transaction to undo, break the loop
 			break
 		}
+
 		switch l := logs[i].(type) {
 		case *startLog:
 			if _, exist := undoSet[l.id]; exist {
@@ -289,17 +296,14 @@ func (rm *RecoveryManager) Recover() error {
 			}
 		}
 	}
-
 	return nil
 }
 
 // Roll back a particular transaction.
 func (rm *RecoveryManager) Rollback(clientId uuid.UUID) error {
 	//panic("function not yet implemented")
-	logs, ok := rm.txStack[clientId]
-	if !ok {
-		return errors.New("transaction not found")
-	}
+	logs := rm.txStack[clientId]
+
 	if len(logs) == 0 {
 		rm.Commit(clientId)
 		err := rm.tm.Commit(clientId)
@@ -307,7 +311,7 @@ func (rm *RecoveryManager) Rollback(clientId uuid.UUID) error {
 	}
 
 	if _, ok := logs[0].(*startLog); !ok {
-		return errors.New("transaction not begin with start")
+		return errors.New("transaction does not begin with startLog")
 	}
 
 	for i := len(logs) - 1; i > 0; i -= 1 {
@@ -317,9 +321,9 @@ func (rm *RecoveryManager) Rollback(clientId uuid.UUID) error {
 		}
 	}
 
+	// commit the transaction after the rollback
 	rm.Commit(clientId)
 	err := rm.tm.Commit(clientId)
-
 	return err
 }
 
