@@ -80,7 +80,7 @@ func main() {
 		panic(err)
 	}
 	// Set up the log file.
-	os.Remove("./data/db.log")
+	os.Remove("./db.log")
 	err = database.CreateLogFile(config.LogFileName)
 	if err != nil {
 		panic(err)
