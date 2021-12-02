@@ -110,7 +110,7 @@ func (table *HashTable) Split(bucket *HashBucket, hash int64) error {
 
 	// calculate the hash key for the new bucket
 	oldHash := hash % (1 << bucket.depth)
-	newHash := oldHash + 1<<bucket.depth
+	newHash := oldHash + 1 << bucket.depth
 
 	newBucketDepth := bucket.depth + 1
 

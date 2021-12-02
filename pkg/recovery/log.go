@@ -26,12 +26,12 @@ import (
    < Tx1, Tx2... checkpoint >
 */
 
-// A log.
+// Log A log.
 type Log interface {
 	toString() string
 }
 
-// Log for a value change.
+// Action Log for a value change.
 type Action string
 
 const (
@@ -40,7 +40,7 @@ const (
 	DELETE_ACTION = "DELETE"
 )
 
-// Convert a textual log to its respective struct.
+// FromString convert a textual log to its respective struct.
 func FromString(s string) (Log, error) {
 	tableExp, _ := regexp.Compile(fmt.Sprintf("< create (?P<tblType>\\w+) table (?P<tblName>\\w+) >"))
 	editExp, _ := regexp.Compile(fmt.Sprintf("< (?P<uuid>%s), (?P<table>\\w+), (?P<action>UPDATE|INSERT|DELETE), (?P<key>\\d+), (?P<oldval>\\d+), (?P<newval>\\d+) >", uuidPattern))
