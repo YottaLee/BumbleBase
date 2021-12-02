@@ -55,35 +55,81 @@ func (rm *RecoveryManager) writeToBuffer(s string) error {
 func (rm *RecoveryManager) Table(tblType string, tblName string) {
 	rm.mtx.Lock()
 	defer rm.mtx.Unlock()
-	panic("function not yet implemented");
+	//panic("function not yet implemented");
+	log := tableLog{
+		tblType: tblType,
+		tblName: tblName,
+	}
+	rm.writeToBuffer(log.toString())
 }
 
 // Write an Edit log.
 func (rm *RecoveryManager) Edit(clientId uuid.UUID, table db.Index, action Action, key int64, oldval int64, newval int64) {
 	rm.mtx.Lock()
 	defer rm.mtx.Unlock()
-	panic("function not yet implemented");
+	//panic("function not yet implemented")
+	tableName := table.GetName()
+	log := editLog{
+		id:        clientId,
+		tablename: tableName,
+		action:    action,
+		key:       int64(key),
+		oldval:    int64(oldval),
+		newval:    int64(newval),
+	}
+	logs, ok := rm.txStack[clientId]
+	if ok {
+		logs = append(logs, &log)
+	}
+
+	rm.writeToBuffer(log.toString())
 }
 
 // Write a transaction start log.
 func (rm *RecoveryManager) Start(clientId uuid.UUID) {
 	rm.mtx.Lock()
 	defer rm.mtx.Unlock()
-	panic("function not yet implemented");
+	//panic("function not yet implemented")
+	log := startLog{id: clientId}
+
+	var logs []Log
+	logs = append(logs, &log)
+	rm.txStack[clientId] = logs
+
+	rm.writeToBuffer(log.toString())
 }
 
 // Write a transaction commit log.
 func (rm *RecoveryManager) Commit(clientId uuid.UUID) {
 	rm.mtx.Lock()
 	defer rm.mtx.Unlock()
-	panic("function not yet implemented");
+	//panic("function not yet implemented")
+	log := commitLog{id: clientId}
+	//logEntry, _ := FromString(log.toString())
+	delete(rm.txStack, clientId)
+
+	rm.writeToBuffer(log.toString())
 }
 
 // Flush all pages to disk and write a checkpoint log.
 func (rm *RecoveryManager) Checkpoint() {
 	rm.mtx.Lock()
 	defer rm.mtx.Unlock()
-	panic("function not yet implemented");
+	//panic("function not yet implemented")
+	tbs := rm.d.GetTables()
+	for _, tb := range tbs {
+		tb.GetPager().LockAllUpdates()
+		tb.GetPager().FlushAllPages()
+		tb.GetPager().UnlockAllUpdates()
+	}
+	uuids := make([]uuid.UUID, 0)
+	for clientId, _ := range rm.txStack {
+		uuids = append(uuids, clientId)
+	}
+	log := checkpointLog{ids: uuids}
+
+	rm.writeToBuffer(log.toString())
+
 	rm.Delta() // Sorta-semi-pseudo-copy-on-write (to ensure db recoverability)
 }
 
@@ -165,12 +211,113 @@ func (rm *RecoveryManager) Undo(log Log) error {
 
 // Do a full recovery to the most recent checkpoint on startup.
 func (rm *RecoveryManager) Recover() error {
-	panic("function not yet implemented");
+	//panic("function not yet implemented")
+	logs, checkpointPos, err := rm.readLogs()
+
+	if err != nil {
+		return err
+	}
+	length := len(logs)
+	if checkpointPos >= length {
+		return nil
+	}
+	undoSet := make(map[uuid.UUID]bool)
+	switch checkPoint := logs[checkpointPos].(type) {
+	case *checkpointLog:
+		for _, id := range checkPoint.ids {
+			undoSet[id] = true
+			err = rm.tm.Begin(id)
+			if err != nil {
+				return err
+			}
+		}
+	default:
+
+	}
+
+	for i := checkpointPos; i < length; i += 1 {
+		switch l := logs[i].(type) {
+		case *startLog:
+			// a new active transaction
+			undoSet[l.id] = true
+			err = rm.tm.Begin(l.id)
+			if err != nil {
+				return err
+			}
+		case *editLog:
+			err = rm.Redo(l)
+			if err != nil {
+				return err
+			}
+		case *tableLog:
+			err = rm.Redo(l)
+			if err != nil {
+				return err
+			}
+		case *commitLog:
+			// transaction has finished, no need to undo
+			delete(undoSet, l.id)
+			err = rm.tm.Commit(l.id)
+			if err != nil {
+				return err
+			}
+		default:
+			continue
+		}
+	}
+
+	for i := length - 1; i >= 0; i -= 1 {
+		if len(undoSet) == 0 {
+			break
+		}
+		switch l := logs[i].(type) {
+		case *startLog:
+			if _, exist := undoSet[l.id]; exist {
+				delete(undoSet, l.id)
+				rm.Commit(l.id)
+				err = rm.tm.Commit(l.id)
+				if err != nil {
+					return err
+				}
+			}
+		case *editLog:
+			if _, exist := undoSet[l.id]; exist {
+				err = rm.Undo(l)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
 }
 
 // Roll back a particular transaction.
 func (rm *RecoveryManager) Rollback(clientId uuid.UUID) error {
-	panic("function not yet implemented");
+	//panic("function not yet implemented")
+	logs := rm.txStack[clientId]
+	if len(logs) == 0 {
+		rm.Commit(clientId)
+		err := rm.tm.Commit(clientId)
+		return err
+	}
+
+	if _, ok := logs[0].(*startLog); !ok {
+		return errors.New("transaction not begin with start")
+	}
+
+	for i := len(logs) - 1; i > 0; i -= 1 {
+		err := rm.Undo(logs[i])
+		if err != nil {
+			return err
+		}
+	}
+
+	rm.Commit(clientId)
+	err := rm.tm.Commit(clientId)
+
+	return err
 }
 
 // Primes the database for recovery
