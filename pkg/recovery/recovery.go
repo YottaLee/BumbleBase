@@ -296,7 +296,10 @@ func (rm *RecoveryManager) Recover() error {
 // Roll back a particular transaction.
 func (rm *RecoveryManager) Rollback(clientId uuid.UUID) error {
 	//panic("function not yet implemented")
-	logs := rm.txStack[clientId]
+	logs, ok := rm.txStack[clientId]
+	if !ok {
+		return errors.New("transaction not found")
+	}
 	if len(logs) == 0 {
 		rm.Commit(clientId)
 		err := rm.tm.Commit(clientId)
