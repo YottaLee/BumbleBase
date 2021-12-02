@@ -14,7 +14,7 @@ import (
 	uuid "github.com/google/uuid"
 )
 
-// Recovery Manager.
+// RecoveryManager Recovery Manager.
 type RecoveryManager struct {
 	d       *db.Database
 	tm      *concurrency.TransactionManager
@@ -23,7 +23,7 @@ type RecoveryManager struct {
 	mtx     sync.Mutex
 }
 
-// Construct a recovery manager.
+// NewRecoveryManager Construct a recovery manager.
 func NewRecoveryManager(
 	d *db.Database,
 	tm *concurrency.TransactionManager,
@@ -51,85 +51,93 @@ func (rm *RecoveryManager) writeToBuffer(s string) error {
 	return err
 }
 
-// Write a Table log.
+// Table Write a table log.
 func (rm *RecoveryManager) Table(tblType string, tblName string) {
 	rm.mtx.Lock()
 	defer rm.mtx.Unlock()
-	//panic("function not yet implemented");
-	log := tableLog{
-		tblType: tblType,
-		tblName: tblName,
-	}
-	rm.writeToBuffer(log.toString())
+
+	// write the log using the manager
+	l := tableLog{tblType: tblType, tblName: tblName}
+	_ = rm.writeToBuffer(l.toString())
 }
 
-// Write an Edit log.
+// Edit Write an edit log.
 func (rm *RecoveryManager) Edit(clientId uuid.UUID, table db.Index, action Action, key int64, oldval int64, newval int64) {
 	rm.mtx.Lock()
 	defer rm.mtx.Unlock()
-	//panic("function not yet implemented")
-	tableName := table.GetName()
-	log := editLog{
+
+	// make and log
+	l := editLog{
 		id:        clientId,
-		tablename: tableName,
+		tablename: table.GetName(),
 		action:    action,
 		key:       key,
 		oldval:    oldval,
 		newval:    newval,
 	}
+
+	// append the log to the corresponding array
 	logs, ok := rm.txStack[clientId]
 	if ok {
-		logs = append(logs, &log)
+		logs = append(logs, &l)
 	}
+	//rm.txStack[clientId] = append(rm.txStack[clientId], &l)
 
-	rm.writeToBuffer(log.toString())
+	_ = rm.writeToBuffer(l.toString())
 }
 
-// Write a transaction start log.
+// Start Write a transaction start log.
 func (rm *RecoveryManager) Start(clientId uuid.UUID) {
 	rm.mtx.Lock()
 	defer rm.mtx.Unlock()
-	//panic("function not yet implemented")
-	log := startLog{id: clientId}
 
+	// make the log
+	l := startLog{id: clientId}
+
+	// make the log array and add to txStack
 	var logs []Log
-	logs = append(logs, &log)
+	logs = append(logs, &l)
 	rm.txStack[clientId] = logs
-
-	rm.writeToBuffer(log.toString())
+	_ = rm.writeToBuffer(l.toString())
 }
 
-// Write a transaction commit log.
+// Commit Write a transaction commit log.
 func (rm *RecoveryManager) Commit(clientId uuid.UUID) {
 	rm.mtx.Lock()
 	defer rm.mtx.Unlock()
-	//panic("function not yet implemented")
-	log := commitLog{id: clientId}
+
+	// make the log
+	l := commitLog{id: clientId}
+
+	// delete the log array from txStack
 	delete(rm.txStack, clientId)
 
-	rm.writeToBuffer(log.toString())
+	_ = rm.writeToBuffer(l.toString())
 }
 
-// Flush all pages to disk and write a checkpoint log.
+// Checkpoint Flush all pages to disk and write a checkpoint log.
 func (rm *RecoveryManager) Checkpoint() {
 	rm.mtx.Lock()
 	defer rm.mtx.Unlock()
-	//panic("function not yet implemented")
 
-	uuids := make([]uuid.UUID, 0)
-	for clientId, _ := range rm.txStack {
-		uuids = append(uuids, clientId)
-	}
-	log := checkpointLog{ids: uuids}
-
-	tbs := rm.d.GetTables()
-	for _, tb := range tbs {
-		tb.GetPager().LockAllUpdates()
-		tb.GetPager().FlushAllPages()
-		tb.GetPager().UnlockAllUpdates()
+	// make the log
+	allUUIDs := make([]uuid.UUID, 0)
+	for id, _ := range rm.txStack {
+		allUUIDs = append(allUUIDs, id)
 	}
 
-	rm.writeToBuffer(log.toString())
+	// write the log to the disk
+	l := checkpointLog{ids: allUUIDs}
+
+	// flush all the tables
+	tables := rm.d.GetTables()
+	for _, table := range tables {
+		table.GetPager().LockAllUpdates()
+		table.GetPager().FlushAllPages()
+		table.GetPager().UnlockAllUpdates()
+	}
+
+	_ = rm.writeToBuffer(l.toString())
 
 	rm.Delta() // Sorta-semi-pseudo-copy-on-write (to ensure db recoverability)
 }
@@ -210,9 +218,8 @@ func (rm *RecoveryManager) Undo(log Log) error {
 	return nil
 }
 
-// Do a full recovery to the most recent checkpoint on startup.
+// Recover Do a full recovery to the most recent checkpoint on startup.
 func (rm *RecoveryManager) Recover() error {
-	//panic("function not yet implemented")
 	logs, checkpointPos, err := rm.readLogs()
 	if err != nil {
 		return err
@@ -299,9 +306,8 @@ func (rm *RecoveryManager) Recover() error {
 	return nil
 }
 
-// Roll back a particular transaction.
+// Rollback Roll back a particular transaction.
 func (rm *RecoveryManager) Rollback(clientId uuid.UUID) error {
-	//panic("function not yet implemented")
 	logs := rm.txStack[clientId]
 
 	if len(logs) == 0 {
@@ -327,7 +333,7 @@ func (rm *RecoveryManager) Rollback(clientId uuid.UUID) error {
 	return err
 }
 
-// Primes the database for recovery
+// Prime the database for recovery
 func Prime(folder string) (*db.Database, error) {
 	// Ensure folder is of the form */
 	base := strings.TrimSuffix(folder, "/")
@@ -357,7 +363,7 @@ func Prime(folder string) (*db.Database, error) {
 	return db.Open(dbFolder)
 }
 
-// Should be called at end of Checkpoint.
+// Delta should be called at end of Checkpoint.
 func (rm *RecoveryManager) Delta() error {
 	folder := strings.TrimSuffix(rm.d.GetBasePath(), "/")
 	recoveryFolder := folder + "-recovery/"

@@ -13,7 +13,7 @@ import (
 
 var DEFAULT_FILTER_SIZE int64 = 1024
 
-// Entry pair struct - output of a join.
+// EntryPair Entry pair struct - output of a join.
 type EntryPair struct {
 	l utils.Entry
 	r utils.Entry
@@ -41,11 +41,12 @@ func buildHashIndex(
 		return nil, "", err
 	}
 	// Build the hash index.
-	//panic("function not yet implemented");
 	cursor, err := sourceTable.TableStart()
+
 	if err != nil {
 		return nil, "", err
 	}
+
 	for {
 		if !cursor.IsEnd() {
 			entry, err := cursor.GetEntry()
@@ -53,10 +54,12 @@ func buildHashIndex(
 				return nil, "", err
 			}
 
-			if !useKey {
-				err = tempIndex.Insert(entry.GetValue(), entry.GetKey())
-			} else {
+			if useKey {
+				// compute hash on entry key
 				err = tempIndex.Insert(entry.GetKey(), entry.GetValue())
+			} else {
+				// compute hash on entry value
+				err = tempIndex.Insert(entry.GetValue(), entry.GetKey())
 			}
 
 			if err != nil {
@@ -66,6 +69,7 @@ func buildHashIndex(
 
 		err = cursor.StepForward()
 		if err != nil {
+			// the cursor is at the end of the Index
 			break
 		}
 	}
@@ -98,49 +102,49 @@ func probeBuckets(
 	defer lBucket.GetPage().Put()
 	defer rBucket.GetPage().Put()
 	// Probe buckets.
-	//panic("function not yet implemented");
-	lentries, err := lBucket.Select()
+	lEntries, err := lBucket.Select()
 	if err != nil {
 		return err
 	}
 
-	rentries, err := rBucket.Select()
+	rEntries, err := rBucket.Select()
 	if err != nil {
 		return err
 	}
 
 	filter := CreateFilter(DEFAULT_FILTER_SIZE)
-	for _, re := range rentries {
-		filter.Insert(re.GetKey())
+	for _, rEntry := range rEntries {
+		filter.Insert(rEntry.GetKey())
 	}
 
-	for _, le := range lentries {
-		contains := filter.Contains(le.GetKey())
+	for _, lEntry := range lEntries {
+		// use bloom filter to speed up check
+		contains := filter.Contains(lEntry.GetKey())
 		if !contains {
 			continue
 		}
-
-		for _, re := range rentries {
-			if le.GetKey() == re.GetKey() {
-				var lhash, rhash hash.HashEntry
+		for _, rEntry := range rEntries {
+			if lEntry.GetKey() == rEntry.GetKey() {
+				var lHashEntry, rHashEntry hash.HashEntry
 
 				if joinOnLeftKey {
-					lhash.SetKey(le.GetKey())
-					lhash.SetValue(le.GetValue())
+					lHashEntry.SetKey(lEntry.GetKey())
+					lHashEntry.SetValue(lEntry.GetValue())
 				} else {
-					lhash.SetKey(le.GetKey())
-					lhash.SetValue(le.GetValue())
+					lHashEntry.SetKey(lEntry.GetValue())
+					lHashEntry.SetValue(lEntry.GetKey())
 				}
 
 				if joinOnRightKey {
-					rhash.SetKey(re.GetKey())
-					rhash.SetValue(re.GetValue())
+					rHashEntry.SetKey(rEntry.GetKey())
+					rHashEntry.SetValue(rEntry.GetValue())
 				} else {
-					rhash.SetKey(re.GetValue())
-					rhash.SetValue(re.GetKey())
+					rHashEntry.SetKey(rEntry.GetValue())
+					rHashEntry.SetValue(rEntry.GetKey())
 				}
 
-				err = sendResult(ctx, resultsChan, EntryPair{l: lhash, r: rhash})
+				// send the result
+				err = sendResult(ctx, resultsChan, EntryPair{l: lHashEntry, r: rHashEntry})
 				if err != nil {
 					return err
 				}

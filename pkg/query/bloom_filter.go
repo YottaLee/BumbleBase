@@ -18,7 +18,6 @@ func CreateFilter(size int64) *BloomFilter {
 
 // Insert adds an element into the bloom filter.
 func (filter *BloomFilter) Insert(key int64) {
-	//panic("function not yet implemented");
 	xxHash := hash.XxHasher(key, filter.size)
 	murmurHash := hash.MurmurHasher(key, filter.size)
 
@@ -31,7 +30,6 @@ func (filter *BloomFilter) Insert(key int64) {
 
 // Contains checks if the given key can be found in the bloom filter/
 func (filter *BloomFilter) Contains(key int64) bool {
-	//panic("function not yet implemented")
 	xxHash := hash.XxHasher(key, filter.size)
 	murmurHash := hash.MurmurHasher(key, filter.size)
 

@@ -3,9 +3,6 @@ package list
 import (
 	"errors"
 	"fmt"
-	"strconv"
-
-	//"io"
 	"strings"
 
 	repl "github.com/brown-csci1270/db/pkg/repl"
@@ -17,77 +14,200 @@ type List struct {
 	tail *Link
 }
 
-// Create a new list.
+// NewList Create a new list.
 func NewList() *List {
-	//panic("function not yet implemented");
 	return new(List)
 }
 
-// Get a pointer to the head of the list.
+// PeekHead Get a pointer to the head of the list.
 func (list *List) PeekHead() *Link {
-	//panic("function not yet implemented");
+	if list == nil {
+		return nil
+	}
 	return list.head
 }
 
-// Get a pointer to the tail of the list.
+// PeekTail Get a pointer to the tail of the list.
 func (list *List) PeekTail() *Link {
-	//panic("function not yet implemented");
+	if list == nil {
+		return nil
+	}
 	return list.tail
 }
 
-// Add an element to the start of the list. Returns the added link.
+// PushHead Add an element to the start of the list. Returns the added link.
 func (list *List) PushHead(value interface{}) *Link {
-	//panic("function not yet implemented");
-	node := &Link{}
-	node.value = value
-	node.list = list
-	if list.tail == nil {
-		list.tail = node
-	} else {
-		list.head.prev = node
-		node.next = list.head
+	if list == nil {
+		return nil
 	}
-	list.head = node
-	return node
+
+	newNode := new(Link)
+
+	newNode.list = list
+	newNode.value = value
+	newNode.next = list.head
+
+	if list.head == nil {
+		list.head = newNode
+		list.tail = newNode
+	} else {
+		list.head.prev = newNode
+		list.head = newNode
+	}
+
+	return newNode
 }
 
-// Add an element to the end of the list. Returns the added link.
+// PushTail Add an element to the end of the list. Returns the added link.
 func (list *List) PushTail(value interface{}) *Link {
-	//panic("function not yet implemented");
-	node := &Link{}
-	node.value = value
-	node.list = list
-	if list.head == nil {
-		list.head = node
-	} else {
-		list.tail.next = node
-		node.prev = list.tail
+	if list == nil {
+		return nil
 	}
-	list.tail = node
-	return node
+
+	newNode := new(Link)
+
+	newNode.list = list
+	newNode.value = value
+	newNode.prev = list.tail
+
+	if list.head == nil {
+		list.head = newNode
+		list.tail = newNode
+	} else {
+		list.tail.next = newNode
+		list.tail = newNode
+	}
+
+	return newNode
 }
 
 // Find an element in a list given a boolean function, f, that evaluates to true on the desired element.
 func (list *List) Find(f func(*Link) bool) *Link {
-	//panic("function not yet implemented");
-	ptr := list.head
-	for ptr != nil {
-		if f(ptr) {
-			return ptr
+	if list == nil {
+		return nil
+	}
+
+	var temp *Link = list.head
+	for temp != nil {
+		if f(temp) {
+			return temp
 		}
-		ptr = ptr.next
+
+		temp = temp.next
 	}
 	return nil
 }
 
-// Apply a function to every element in the list. f should alter Link in place.
+// Map Apply a function to every element in the list. f should alter Link in place.
 func (list *List) Map(f func(*Link)) {
-	//panic("function not yet implemented");
-	ptr := list.head
-	for ptr != nil {
-		f(ptr)
-		ptr = ptr.next
+	if list == nil {
+		return
 	}
+	var temp *Link = list.head
+	for temp != nil {
+		// apply the function to node
+		f(temp)
+		temp = temp.next
+	}
+}
+
+func (list *List) printList(command string, config *repl.REPLConfig) error {
+	node := list.head
+	for node != nil {
+		if node == list.head {
+			fmt.Print(node.value)
+		} else {
+			fmt.Printf(",%s", node.value)
+		}
+		node = node.next
+	}
+	fmt.Print("\n")
+	return nil
+}
+
+func (list *List) pushHead(command string, config *repl.REPLConfig) error {
+	args := strings.Split(command, " ")
+	if len(args) < 1 {
+		return errors.New("invalid command")
+	}
+
+	value := args[1]
+
+	if list.PushHead(value) == nil {
+		return errors.New("push list head error")
+	}
+	return nil
+}
+
+func (list *List) pushTail(command string, config *repl.REPLConfig) error {
+	args := strings.Split(command, " ")
+	if len(args) < 1 {
+		return errors.New("invalid command")
+	}
+
+	value := args[1]
+
+	if list.PushTail(value) == nil {
+		return errors.New("push list tail error")
+	}
+	return nil
+}
+
+func (list *List) remove(command string, config *repl.REPLConfig) error {
+	args := strings.Split(command, " ")
+	if len(args) < 1 {
+		return errors.New("invalid command")
+	}
+
+	value := args[1]
+
+	tempNode := new(Link)
+	tempNode.SetKey(value)
+
+	iter := list.head
+	var found *Link = nil
+
+	for iter != nil {
+		if iter.isEqual(tempNode) {
+			found = iter
+			break
+		}
+		iter = iter.next
+	}
+	if found == nil {
+		return errors.New("value not found")
+	}
+
+	found.PopSelf()
+	return nil
+}
+
+func (list *List) contains(command string, config *repl.REPLConfig) error {
+	args := strings.Split(command, " ")
+	if len(args) < 1 {
+		return errors.New("invalid command")
+	}
+
+	value := args[1]
+
+	tempNode := new(Link)
+	tempNode.SetKey(value)
+
+	iter := list.head
+	found := false
+	for iter != nil {
+		if iter.isEqual(tempNode) {
+			found = true
+			break
+		}
+		iter = iter.next
+	}
+	if found {
+		fmt.Println("found!")
+	} else {
+		fmt.Println("not found")
+	}
+	return nil
 }
 
 // Link struct.
@@ -98,182 +218,93 @@ type Link struct {
 	value interface{}
 }
 
-// Get the list that this link is a part of.
+// GetList Get the list that this link is a part of.
 func (link *Link) GetList() *List {
-	//panic("function not yet implemented");
+	if link == nil {
+		return nil
+	}
 	return link.list
 }
 
-// Get the link's value.
+// GetKey Get the link's value.
 func (link *Link) GetKey() interface{} {
-	//panic("function not yet implemented");
-	if link != nil {
-		return link.value
+	if link == nil {
+		return nil
 	}
-	return nil
+
+	return link.value
 }
 
-// Set the link's value.
+// SetKey Set the link's value.
 func (link *Link) SetKey(value interface{}) {
-	//panic("function not yet implemented");
+	if link == nil {
+		return
+	}
 	link.value = value
 }
 
-// Get the link's prev.
+// GetPrev Get the link's prev.
 func (link *Link) GetPrev() *Link {
-	//panic("function not yet implemented");
-	if link.prev != nil {
-		return link.prev
+	if link == nil {
+		return nil
 	}
-	return nil
+
+	return link.prev
 }
 
-// Get the link's next.
+// GetNext Get the link's next.
 func (link *Link) GetNext() *Link {
-	//panic("function not yet implemented");
-	if link.next != nil {
-		return link.next
+	if link == nil {
+		return nil
 	}
-	return nil
+
+	return link.next
 }
 
-// Remove this link from its list.
+// PopSelf Remove this link from its list.
 func (link *Link) PopSelf() {
-	//panic("function not yet implemented");
-	switch {
-	case link.next != nil:
-		link.next.prev = link.prev
-		if link.prev == nil {
-			link.list.head = link.next
-		} else {
-			link.prev.next = link.next
-		}
-	case link.prev != nil:
-		link.prev.next = link.next
-		if link.next == nil {
-			link.list.tail = link.prev
-		} else {
-			link.next.prev = link.prev
-		}
-	case link.prev == nil && link.next == nil:
-		link.list.head = nil
-		link.list.tail = nil
+	if link == nil {
+		return
 	}
+
+	var prev *Link = link.prev
+	var next *Link = link.next
+	var list *List = link.list
+	if prev == nil && next == nil {
+		// link is the only node in the list
+		list.head = nil
+		list.tail = nil
+	} else if prev == nil {
+		// link is the first node of its list
+		next.prev = nil
+		list.head = next
+	} else if next == nil {
+		// link is the last node of its list
+		prev.next = nil
+		list.tail = prev
+	} else {
+		prev.next = link.next
+		next.prev = link.prev
+	}
+	// remove the link from the list
+	link.prev = nil
+	link.next = nil
 }
 
-const (
-	CmdListHelp     = ".help"
-	CmdListContains = "list_contains"
-	CmdListPrint    = "list_print"
-	CmdListPushHead = "list_push_head"
-	CmdListPushTail = "list_push_tail"
-	CmdListRemove   = "list_remove"
-
-	HelpListContains = "Checks if an element exists int the list, usage: list_contains <elt>"
-	HelpListPrint    = "Prints out the elements of the list. usage: list_print"
-	HelpListPushHead = "Add an element to the head of the list. usage: list_push_head <elt>"
-	HelpListPushTail = "Add an element to the tail of the list. usage: list_push_tail <elt>"
-	HelpListRemove   = "Remove an element with the given value from the list. usage: list_remove <elf>"
-)
-
-func (list *List) list_contains(s string, config *repl.REPLConfig) error {
-	tokens := strings.Split(s, " ")
-	if tokens[0] != CmdListContains || len(tokens) != 2 {
-		fmt.Print("wrong command\n")
-		return errors.New("wrong command")
-	}
-	//fmt.Println("tokens: ", tokens)
-	v, err := strconv.ParseInt(tokens[1], 10, 0)
-	if err != nil {
-		return err
-	}
-	ptr := list.head
-	for ptr != nil {
-		if ptr.value == v {
-			fmt.Println("found!")
-			return nil
-		}
-		ptr = ptr.next
-	}
-	fmt.Println("not found")
-	return nil
+func (link *Link) isEqual(other *Link) bool {
+	return link.value == other.value
 }
 
-func (list *List) list_print(s string, config *repl.REPLConfig) error {
-	if s != CmdListPrint {
-		fmt.Print("wrong command\n")
-		return errors.New("wrong command")
-	}
-	ptr := list.head
-	for ptr != nil {
-		fmt.Print(ptr.value)
-		ptr = ptr.next
-	}
-	fmt.Println("")
-	return nil
-}
-
-func (list *List) list_pushhead(s string, config *repl.REPLConfig) error {
-	tokens := strings.Split(s, " ")
-	if tokens[0] != CmdListPushHead || len(tokens) != 2 {
-		fmt.Print("wrong command\n")
-		return errors.New("wrong command")
-	}
-	v, err := strconv.ParseInt(tokens[1], 10, 0)
-	if err != nil {
-		return err
-	}
-	list.PushHead(v)
-	return nil
-}
-
-func (list *List) list_pushtail(s string, config *repl.REPLConfig) error {
-	tokens := strings.Split(s, " ")
-	if tokens[0] != CmdListPushTail || len(tokens) != 2 {
-		fmt.Print("wrong command\n")
-		return errors.New("wrong command")
-	}
-	v, err := strconv.ParseInt(tokens[1], 10, 0)
-	if err != nil {
-		return err
-	}
-	list.PushTail(v)
-	return nil
-}
-
-func (list *List) list_remove(s string, config *repl.REPLConfig) error {
-	tokens := strings.Split(s, " ")
-	if tokens[0] != CmdListRemove || len(tokens) != 2 {
-		fmt.Print("wrong command\n")
-		return errors.New("wrong command")
-	}
-	v, err := strconv.ParseInt(tokens[1], 10, 0)
-	if err != nil {
-		return err
-	}
-	ptr := list.head
-	for ptr != nil {
-		if ptr.value == v {
-			ptr.PopSelf()
-			return nil
-		}
-		ptr = ptr.next
-	}
-	return nil
-}
-
-// List REPL.
+// ListRepl List REPL.
 func ListRepl(list *List) *repl.REPL {
-	//panic("function not yet implemented listrepl");
-	//fmt.Println("enter ListRepl")
-	repl := repl.NewRepl()
-	//list.PushHead(1)
+	r := repl.NewRepl()
+	linkedList := NewList()
 
-	repl.AddCommand(CmdListContains, list.list_contains, HelpListContains)
-	repl.AddCommand(CmdListPrint, list.list_print, HelpListPrint)
-	repl.AddCommand(CmdListPushHead, list.list_pushhead, HelpListPushHead)
-	repl.AddCommand(CmdListPushTail, list.list_pushtail, HelpListPushTail)
-	repl.AddCommand(CmdListRemove, list.list_remove, HelpListRemove)
-	return repl
+	r.AddCommand("list_print", linkedList.printList, "Prints out all of the elements in the list in order, separated by commas (e.g. \"0, 1, 2\")")
+	r.AddCommand("list_push_head", linkedList.pushHead, "Inserts the given element to the List as a string.")
+	r.AddCommand("list_push_tail", linkedList.pushTail, "Inserts the given element to the end of the List as a string.")
+	r.AddCommand("list_remove", linkedList.remove, "Removes the given element from the list.")
+	r.AddCommand("list_contains", linkedList.contains, "Prints \"found!\" if the element is in the list, prints \"not found\" otherwise.")
 
+	return r
 }
