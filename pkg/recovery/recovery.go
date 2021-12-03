@@ -77,9 +77,9 @@ func (rm *RecoveryManager) Edit(clientId uuid.UUID, table db.Index, action Actio
 	}
 
 	// append the log to the corresponding array
-	logs, ok := rm.txStack[clientId]
+	_, ok := rm.txStack[clientId]
 	if ok {
-		logs = append(logs, &l)
+		rm.txStack[clientId] = append(rm.txStack[clientId], &l)
 	}
 	//rm.txStack[clientId] = append(rm.txStack[clientId], &l)
 
